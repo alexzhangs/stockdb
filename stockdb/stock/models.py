@@ -2,15 +2,15 @@ from django.db import models
 
 from common.models import *
 from firm.models import *
-from exchange.models import *
+from market.models import *
 
 
 # Create your models here.
 
 class Stock(models.Model):
     firm = models.ForeignKey(Firm, on_delete=models.RESTRICT)
-    exchange = models.ForeignKey(Exchange, on_delete=models.RESTRICT, related_name='stocks')
-    market = models.ForeignKey(Market, on_delete=models.RESTRICT, null=True, blank=True, related_name='stocks')
+    market = models.ForeignKey(Market, to_field='code', on_delete=models.RESTRICT, related_name='stocks')
+    subject = models.ForeignKey(Subject, to_field='code', on_delete=models.RESTRICT, null=True, blank=True, related_name='stocks')
     code = models.CharField(max_length=16)
     name = models.CharField(max_length=32)
     total_num = models.IntegerField()
