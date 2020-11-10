@@ -3,31 +3,37 @@ from django.db import models
 
 # Create your models here.
 
+# refer to: https://zh.wikipedia.org/wiki/ISO_4217
 class Currency(models.Model):
-    code = models.CharField(max_length=16)
-    name = models.CharField(max_length=64)
+    code = models.CharField(max_length=3, unique=True)
+    name = models.CharField(max_length=32)
     symbol = models.CharField(max_length=8)
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
 
+# Level 1, refer to: https://zh.wikipedia.org/zh-hans/ISO_3166-1
+# Level 2 & 3, partly refer to: https://github.com/adyliu/china_area
 class Area(models.Model):
+    code = models.CharField(max_length=9, unique=True)
     name = models.CharField(max_length=64)
-    parent = models.ForeignKey('Area', on_delete=models.RESTRICT, related_name='subs')
+    level = models.SmallIntegerField()
+    parent = models.ForeignKey('Area', to_field='code', on_delete=models.RESTRICT, null=True, blank=True, related_name='subs')
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
 
 class Industry(models.Model):
-    code = models.CharField(max_length=16)
+    code = models.CharField(max_length=16, unique=True)
     name = models.CharField(max_length=64)
-    parent = models.ForeignKey('Industry', on_delete=models.RESTRICT, related_name='subs')
+    level = models.SmallIntegerField()
+    parent = models.ForeignKey('Industry', to_field='code', on_delete=models.RESTRICT, null=True, blank=True, related_name='subs')
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
 
 class Period(models.Model):
-    code = models.CharField(max_length=16)
+    code = models.CharField(max_length=16, unique=True)
     name = models.CharField(max_length=64)
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
