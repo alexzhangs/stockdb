@@ -8,9 +8,10 @@ from market.models import *
 # Create your models here.
 
 class Stock(models.Model):
-    firm = models.ForeignKey(Firm, on_delete=models.RESTRICT)
+    firm = models.ForeignKey(Firm, on_delete=models.SET_NULL, null=True, blank=True)
     market = models.ForeignKey(Market, to_field='code', on_delete=models.RESTRICT, related_name='stocks')
     subject = models.ForeignKey(Subject, to_field='code', on_delete=models.RESTRICT, null=True, blank=True, related_name='stocks')
+    gcode = models.CharField(max_length=32, unique=True)
     code = models.CharField(max_length=16)
     name = models.CharField(max_length=32)
     total_num = models.IntegerField()
