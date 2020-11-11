@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Django
+stockdb/*/migrations/*
+!stockdb/*/migrations/__init__.py
