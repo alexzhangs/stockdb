@@ -13,8 +13,8 @@ class Stock(models.Model):
     isin = models.CharField(max_length=12, null=True, blank=True)
     name = models.CharField(max_length=32)
     firm = models.ForeignKey(Firm, on_delete=models.SET_NULL, null=True, blank=True)
-    market = models.ForeignKey(Market, to_field='code', on_delete=models.RESTRICT, related_name='stocks')
-    subject = models.ForeignKey(Subject, to_field='code', on_delete=models.RESTRICT, null=True, blank=True, related_name='stocks')
+    market = models.ForeignKey(Market, to_field='code', on_delete=models.DO_NOTHING, related_name='stocks')
+    subject = models.ForeignKey(Subject, to_field='code', on_delete=models.DO_NOTHING, null=True, blank=True, related_name='stocks')
     total_num = models.IntegerField()
     tradable_num = models.IntegerField()
     status = models.CharField(max_length=16) # Normal,Suspended
@@ -29,7 +29,7 @@ class Stock(models.Model):
 
 
 class StockHist(models.Model):
-    stock = models.ForeignKey(Stock, on_delete=models.RESTRICT, related_name='changes')
+    stock = models.ForeignKey(Stock, to_field='code', on_delete=models.DO_NOTHING, related_name='changes')
     dt_started = models.DateTimeField()
     dt_ended = models.DateTimeField()
     field = models.CharField(max_length=16) # name, status, total_num, tradable_num
@@ -42,8 +42,8 @@ class StockHist(models.Model):
 
 
 class StockPeriod(models.Model):
-    stock = models.ForeignKey(Stock, on_delete=models.RESTRICT, related_name='periods')
-    period = models.ForeignKey(Period, on_delete=models.RESTRICT)
+    stock = models.ForeignKey(Stock, to_field='code', on_delete=models.DO_NOTHING, related_name='periods')
+    period = models.ForeignKey(Period, to_field='code', on_delete=models.DO_NOTHING)
     pre_close = models.DecimalField(max_digits=8, decimal_places=2)
     open = models.DecimalField(max_digits=8, decimal_places=2)
     close = models.DecimalField(max_digits=8, decimal_places=2)

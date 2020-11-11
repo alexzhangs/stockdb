@@ -22,7 +22,7 @@ class Region(models.Model):
     code = models.CharField(max_length=9, unique=True)
     name = models.CharField(max_length=64)
     level = models.SmallIntegerField()
-    parent = models.ForeignKey('Region', to_field='code', on_delete=models.RESTRICT, null=True, blank=True, related_name='subs')
+    parent = models.ForeignKey('Region', to_field='code', on_delete=models.DO_NOTHING, null=True, blank=True, related_name='subs')
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
@@ -34,7 +34,7 @@ class Industry(models.Model):
     code = models.CharField(max_length=16, unique=True)
     name = models.CharField(max_length=64)
     level = models.SmallIntegerField()
-    parent = models.ForeignKey('Industry', to_field='code', on_delete=models.RESTRICT, null=True, blank=True, related_name='subs')
+    parent = models.ForeignKey('Industry', to_field='code', on_delete=models.DO_NOTHING, null=True, blank=True, related_name='subs')
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 

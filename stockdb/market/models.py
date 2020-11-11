@@ -12,8 +12,8 @@ class Market(models.Model):
     code = models.CharField(max_length=4, unique=True, help_text='Market Identifier Code')
     name = models.CharField(max_length=64)
     acronym = models.CharField(max_length=16)
-    region = models.ForeignKey(Region, on_delete=models.RESTRICT, related_name='markets')
-    currency = models.ForeignKey(Currency, on_delete=models.RESTRICT, related_name='markets')
+    region = models.ForeignKey(Region, on_delete=models.DO_NOTHING, related_name='markets')
+    currency = models.ForeignKey(Currency, on_delete=models.DO_NOTHING, related_name='markets')
     website = models.CharField(max_length=128, null=True, blank=True)
     dt_opened = models.DateTimeField('Opened')
     dt_created = models.DateTimeField('Created', auto_now_add=True)
@@ -35,8 +35,8 @@ class Subject(models.Model):
     code = models.CharField(max_length=32, unique=True)
     name = models.CharField(max_length=32)
     level = models.SmallIntegerField()
-    market = models.ForeignKey(Market, to_field='code', on_delete=models.RESTRICT, related_name='subjects')
-    parent = models.ForeignKey('Subject', to_field='code', on_delete=models.RESTRICT, null=True, blank=True, related_name='subs')
+    market = models.ForeignKey(Market, to_field='code', on_delete=models.DO_NOTHING, related_name='subjects')
+    parent = models.ForeignKey('Subject', to_field='code', on_delete=models.DO_NOTHING, null=True, blank=True, related_name='subs')
     trans_plus = models.SmallIntegerField(null=True, blank=True, help_text='Transaction plus N days')
     dpl_rule = models.CharField(max_length=256, null=True, blank=True, help_text='Daily Price Limite Rule, in Python Expression, -1: unlimited')
     dt_opened = models.DateTimeField('Opened', null=True, blank=True)
@@ -48,7 +48,7 @@ class Subject(models.Model):
 
 
 class SubjectHist(models.Model):
-    Subject = models.ForeignKey(Subject, on_delete=models.RESTRICT, related_name='changes')
+    Subject = models.ForeignKey(Subject, to_field='code', on_delete=models.DO_NOTHING, related_name='changes')
     dt_started = models.DateTimeField('Started')
     dt_ended = models.DateTimeField('Ended', null=True, blank=True)
     field = models.CharField(max_length=16) # dpl_rule

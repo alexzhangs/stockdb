@@ -24,9 +24,9 @@ class Index(models.Model):
     isin = models.CharField(max_length=12, null=True, blank=True)
     name = models.CharField(max_length=32)
     formula = models.CharField(max_length=512, null=True, blank=True)
-    region = models.ForeignKey(Region, on_delete=models.RESTRICT, related_name='indexes')
-    market = models.ForeignKey(Market, to_field='code', null=True, blank=True, on_delete=models.RESTRICT, related_name='indexes')
-    subject = models.ForeignKey(Subject, to_field='code', null=True, blank=True, on_delete=models.RESTRICT, related_name='indexes')
+    region = models.ForeignKey(Region, on_delete=models.DO_NOTHING, related_name='indexes')
+    market = models.ForeignKey(Market, to_field='code', null=True, blank=True, on_delete=models.DO_NOTHING, related_name='indexes')
+    subject = models.ForeignKey(Subject, to_field='code', null=True, blank=True, on_delete=models.DO_NOTHING, related_name='indexes')
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
@@ -35,8 +35,8 @@ class Index(models.Model):
 
 
 class IndexStockRef(models.Model):
-    index = models.ForeignKey(Index, on_delete=models.RESTRICT, related_name='stocks')
-    stock = models.ForeignKey(Stock, on_delete=models.RESTRICT, related_name='indexes')
+    index = models.ForeignKey(Index, to_field='code', on_delete=models.DO_NOTHING, related_name='stocks')
+    stock = models.ForeignKey(Stock, to_field='code', on_delete=models.DO_NOTHING, related_name='indexes')
     weight = models.DecimalField(max_digits=3, decimal_places=2)
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
