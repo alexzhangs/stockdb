@@ -23,6 +23,9 @@ class Stock(models.Model):
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
+    def __str__(self):
+        return '%s (%s)' % (self.name, self.code)
+
 
 class StockHist(models.Model):
     stock = models.ForeignKey(Stock, on_delete=models.RESTRICT, related_name='changes')

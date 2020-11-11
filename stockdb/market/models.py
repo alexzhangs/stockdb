@@ -19,6 +19,9 @@ class Market(models.Model):
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
+    def __str__(self):
+        return '%s(%s)' % (self.name, self.code)
+
 
 # refer to:
 #   * https://zh.wikipedia.org/wiki/深圳证券交易所
@@ -39,6 +42,9 @@ class Subject(models.Model):
     dt_opened = models.DateTimeField('Opened', null=True, blank=True)
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
+
+    def __str__(self):
+        return '%s (%s)' % (self.name, self.code)
 
 
 class SubjectHist(models.Model):

@@ -16,6 +16,9 @@ class Index(models.Model):
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
+    def __str__(self):
+        return '%s (%s)' % (self.name, self.code)
+
 
 class IndexStockRef(models.Model):
     index = models.ForeignKey(Index, on_delete=models.RESTRICT, related_name='stocks')

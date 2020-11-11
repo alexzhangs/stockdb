@@ -11,3 +11,6 @@ class Firm(models.Model):
     industry = models.ForeignKey(Industry, on_delete=models.RESTRICT, related_name='firms')
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
+
+    def __str__(self):
+        return self.name
