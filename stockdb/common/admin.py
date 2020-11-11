@@ -10,9 +10,9 @@ class CurrencyAdmin(admin.ModelAdmin):
     list_display = [f.name for f in Currency._meta.local_fields]
 
 
-@admin.register(Area)
-class AreaAdmin(admin.ModelAdmin):
-    list_display = [f.name for f in Area._meta.local_fields]
+@admin.register(Region)
+class RegionAdmin(admin.ModelAdmin):
+    list_display = [f.name for f in Region._meta.local_fields]
 
 
 @admin.register(Industry)

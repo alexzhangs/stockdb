@@ -12,7 +12,7 @@ class Market(models.Model):
     code = models.CharField(max_length=4, unique=True, help_text='Market Identifier Code')
     name = models.CharField(max_length=64)
     acronym = models.CharField(max_length=16)
-    area = models.ForeignKey(Area, on_delete=models.RESTRICT, related_name='markets')
+    region = models.ForeignKey(Region, on_delete=models.RESTRICT, related_name='markets')
     currency = models.ForeignKey(Currency, on_delete=models.RESTRICT, related_name='markets')
     website = models.CharField(max_length=128, null=True, blank=True)
     dt_opened = models.DateTimeField('Opened')

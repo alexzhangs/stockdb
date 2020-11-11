@@ -12,13 +12,15 @@ class Currency(models.Model):
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
 
-# Level 1, refer to: https://zh.wikipedia.org/zh-hans/ISO_3166-1
-# Level 2 & 3, partly refer to: https://github.com/adyliu/china_area
-class Area(models.Model):
+
+# Level 2, refer to: https://gist.github.com/richjenks/15b75f1960bc3321e295
+# Level 3, refer to: https://zh.wikipedia.org/zh-hans/ISO_3166-1
+# Level 4 & 5, partly refer to: https://github.com/adyliu/china_area
+class Region(models.Model):
     code = models.CharField(max_length=9, unique=True)
     name = models.CharField(max_length=64)
     level = models.SmallIntegerField()
-    parent = models.ForeignKey('Area', to_field='code', on_delete=models.RESTRICT, null=True, blank=True, related_name='subs')
+    parent = models.ForeignKey('Region', to_field='code', on_delete=models.RESTRICT, null=True, blank=True, related_name='subs')
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
