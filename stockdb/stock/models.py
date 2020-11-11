@@ -8,18 +8,18 @@ from market.models import *
 # Create your models here.
 
 class Stock(models.Model):
+    code = models.CharField(max_length=32, unique=True)
+    inner_code = models.CharField(max_length=16)
+    name = models.CharField(max_length=32)
     firm = models.ForeignKey(Firm, on_delete=models.SET_NULL, null=True, blank=True)
     market = models.ForeignKey(Market, to_field='code', on_delete=models.RESTRICT, related_name='stocks')
     subject = models.ForeignKey(Subject, to_field='code', on_delete=models.RESTRICT, null=True, blank=True, related_name='stocks')
-    gcode = models.CharField(max_length=32, unique=True)
-    code = models.CharField(max_length=16)
-    name = models.CharField(max_length=32)
     total_num = models.IntegerField()
     tradable_num = models.IntegerField()
     status = models.CharField(max_length=16) # Normal,Suspended
     is_listed = models.BooleanField()
     dt_listed = models.DateField()
-    dt_delisted = models.DateField()
+    dt_delisted = models.DateField(null=True, blank=True)
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
