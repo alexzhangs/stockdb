@@ -16,9 +16,12 @@ from stock.models import *
 #   * https://zh.wikipedia.org/wiki/富時集團
 #   * https://www.ftserussell.com/index
 #   * https://zh.wikipedia.org/wiki/美元指数
+#   * https://zh.wikipedia.org/wiki/國際證券識別碼
+#   * https://www.marketwatch.com/tools/quotes/lookup.asp
 class Index(models.Model):
     code = models.CharField(max_length=16, unique=True)
-    inner_code = models.CharField(max_length=16, null=True, blank=True)
+    native_code = models.CharField(max_length=16, null=True, blank=True)
+    isin = models.CharField(max_length=12, null=True, blank=True)
     name = models.CharField(max_length=32)
     formula = models.CharField(max_length=512, null=True, blank=True)
     region = models.ForeignKey(Region, on_delete=models.RESTRICT, related_name='indexes')

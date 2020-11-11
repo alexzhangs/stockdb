@@ -9,7 +9,8 @@ from market.models import *
 
 class Stock(models.Model):
     code = models.CharField(max_length=32, unique=True)
-    inner_code = models.CharField(max_length=16)
+    native_code = models.CharField(max_length=16)
+    isin = models.CharField(max_length=12, null=True, blank=True)
     name = models.CharField(max_length=32)
     firm = models.ForeignKey(Firm, on_delete=models.SET_NULL, null=True, blank=True)
     market = models.ForeignKey(Market, to_field='code', on_delete=models.RESTRICT, related_name='stocks')
