@@ -19,9 +19,12 @@ from stock.models import *
 #   * https://zh.wikipedia.org/wiki/國際證券識別碼
 #   * https://www.marketwatch.com/tools/quotes/lookup.asp
 class Index(models.Model):
-    code = models.CharField(max_length=16, unique=True)
-    native_code = models.CharField(max_length=16, null=True, blank=True)
-    isin = models.CharField(max_length=12, null=True, blank=True)
+    code = models.CharField(max_length=16, unique=True,
+        help_text='The unique code given in this application.')
+    native_code = models.CharField(max_length=16, null=True, blank=True,
+        help_text='The ticker symbol given by the local exchange/market.')
+    isin = models.CharField(max_length=12, null=True, blank=True,
+        help_text='International Securities Identification Number, ISO 6166, https://en.wikipedia.org/wiki/International_Securities_Identification_Number.')
     name = models.CharField(max_length=32)
     formula = models.CharField(max_length=512, null=True, blank=True)
     region = models.ForeignKey(Region, on_delete=models.DO_NOTHING, related_name='indexes')

@@ -9,7 +9,8 @@ from common.models import *
 #   * https://www.iso20022.org/market-identifier-codes
 #   * https://zh.wikipedia.org/zh-cn/世界證券交易所列表
 class Market(models.Model):
-    code = models.CharField(max_length=4, unique=True, help_text='Market Identifier Code')
+    code = models.CharField(max_length=4, unique=True,
+        help_text='Market Identifier Code, ISO 10380, https://www.iso20022.org/market-identifier-codes')
     name = models.CharField(max_length=64)
     acronym = models.CharField(max_length=16)
     region = models.ForeignKey(Region, on_delete=models.DO_NOTHING, related_name='markets')
@@ -37,8 +38,10 @@ class Subject(models.Model):
     level = models.SmallIntegerField()
     market = models.ForeignKey(Market, to_field='code', on_delete=models.DO_NOTHING, related_name='subjects')
     parent = models.ForeignKey('Subject', to_field='code', on_delete=models.DO_NOTHING, null=True, blank=True, related_name='subs')
-    trans_plus = models.SmallIntegerField(null=True, blank=True, help_text='Transaction plus N days')
-    dpl_rule = models.CharField(max_length=256, null=True, blank=True, help_text='Daily Price Limite Rule, in Python Expression, -1: unlimited')
+    trans_plus = models.SmallIntegerField(null=True, blank=True,
+        help_text='Transaction plus N days')
+    dpl_rule = models.CharField(max_length=256, null=True, blank=True,
+        help_text='Daily Price Limite Rule, in Python Expression, -1: unlimited')
     dt_opened = models.DateTimeField('Opened', null=True, blank=True)
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)

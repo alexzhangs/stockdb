@@ -7,10 +7,15 @@ from market.models import *
 
 # Create your models here.
 
+# refer to:
+#   * https://en.wikipedia.org/wiki/International_Securities_Identification_Number
 class Stock(models.Model):
-    code = models.CharField(max_length=32, unique=True)
-    native_code = models.CharField(max_length=16)
-    isin = models.CharField(max_length=12, null=True, blank=True)
+    code = models.CharField(max_length=32, unique=True,
+        help_text='The unique code given in this application.')
+    native_code = models.CharField(max_length=16,
+        help_text='The ticker symbol given by the local exchange/market.')
+    isin = models.CharField(max_length=12, null=True, blank=True,
+        help_text='International Securities Identification Number, ISO 6166, https://en.wikipedia.org/wiki/International_Securities_Identification_Number.')
     name = models.CharField(max_length=32)
     firm = models.ForeignKey(Firm, on_delete=models.SET_NULL, null=True, blank=True)
     market = models.ForeignKey(Market, to_field='code', on_delete=models.DO_NOTHING, related_name='stocks')
