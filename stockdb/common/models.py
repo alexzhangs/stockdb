@@ -27,7 +27,7 @@ class Region(models.Model):
     code = models.CharField(max_length=9, unique=True,
         help_text='ISO 3166-1 for level 3, see Alpha-2 code, https://zh.wikipedia.org/wiki/ISO_3166-1')
     name = models.CharField(max_length=64)
-    level = models.SmallIntegerField()
+    level = models.SmallIntegerField(help_text='Started with level 1.')
     parent = models.ForeignKey('Region', to_field='code', on_delete=models.DO_NOTHING, null=True, blank=True, related_name='subs')
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
@@ -39,7 +39,7 @@ class Region(models.Model):
 class Industry(models.Model):
     code = models.CharField(max_length=16, unique=True)
     name = models.CharField(max_length=64)
-    level = models.SmallIntegerField()
+    level = models.SmallIntegerField(help_text='Started with level 1.')
     parent = models.ForeignKey('Industry', to_field='code', on_delete=models.DO_NOTHING, null=True, blank=True, related_name='subs')
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)

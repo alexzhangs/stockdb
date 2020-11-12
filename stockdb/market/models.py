@@ -37,7 +37,8 @@ class Subject(models.Model):
     name = models.CharField(max_length=32)
     level = models.SmallIntegerField()
     market = models.ForeignKey(Market, to_field='code', on_delete=models.DO_NOTHING, related_name='subjects')
-    parent = models.ForeignKey('Subject', to_field='code', on_delete=models.DO_NOTHING, null=True, blank=True, related_name='subs')
+    parent = models.ForeignKey('Subject', to_field='code', on_delete=models.DO_NOTHING, null=True, blank=True, related_name='subs',
+        help_text='Started with level 1.')
     trans_plus = models.SmallIntegerField(null=True, blank=True,
         help_text='Transaction plus N days')
     dpl_rule = models.CharField(max_length=256, null=True, blank=True,
