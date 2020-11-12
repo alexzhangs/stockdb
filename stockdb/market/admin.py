@@ -12,4 +12,4 @@ class MarketAdmin(admin.ModelAdmin):
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    list_display = [f.name for f in Subject._meta.local_fields]
+    list_display = [f.name for f in Subject._meta.local_fields if f.name not in ['dpl_rule']]
