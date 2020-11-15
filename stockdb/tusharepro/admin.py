@@ -28,9 +28,9 @@ class AccountAdmin(admin.ModelAdmin):
     #form = AccountForm
 
 
-@admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = [f.name for f in Category._meta.local_fields if f.name not in ['desc']]
+@admin.register(ApiCategory)
+class ApiCategoryAdmin(admin.ModelAdmin):
+    list_display = [f.name for f in ApiCategory._meta.local_fields if f.name not in ['desc']]
 
 
 @admin.register(Api)

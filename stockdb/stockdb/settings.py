@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'firm',
     'index',
     'stock',
-    'tushare',
+    'tusharepro',
 ]
 
 MIDDLEWARE = [
