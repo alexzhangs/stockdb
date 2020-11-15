@@ -1,3 +1,14 @@
+# ------------ DJANGO INTEGRATION SETTINGS BEGIN ------------
+import os
+import sys
+import django
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+os.environ['DJANGO_SETTINGS_MODULE'] = 'stockdb.settings'
+django.setup()
+# ------------ DJANGO INTEGRATION SETTINGS END   ------------
+
+
 # Scrapy settings for crawler project
 #
 # For simplicity, this file contains only settings considered important or
@@ -65,6 +76,11 @@ ROBOTSTXT_OBEY = True
 #ITEM_PIPELINES = {
 #    'crawler.pipelines.CrawlerPipeline': 300,
 #}
+ITEM_PIPELINES = {
+    "crawler.pipelines.TushareItemRelationPipeline": 300,
+    # Last pipeline, because further changes won't be saved.
+    "crawler.pipelines.TushareItemPersistencePipeline": 300,
+    }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html
