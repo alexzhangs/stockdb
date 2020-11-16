@@ -51,12 +51,11 @@ class ApiCategory(models.Model):
 
     objects = CategoryManager()
 
-    def __str__(self):
-        return self.name
-
     class Meta:
         verbose_name = 'API Category'
 
+    def __str__(self):
+        return self.name
 
 
 class ApiManager(models.Manager):
@@ -77,11 +76,12 @@ class Api(models.Model):
 
     objects = ApiManager()
 
+    class Meta:
+        verbose_name = 'API'
+
     def __str__(self):
         return '%s (%s)' % (self.name, self.code)
 
-    class Meta:
-        verbose_name = 'API'
 
 
 
