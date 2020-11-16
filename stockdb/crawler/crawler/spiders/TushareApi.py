@@ -1,13 +1,13 @@
 import scrapy
 from scrapy.linkextractors import LinkExtractor
-from scrapy.spiders import CrawlSpider, Rule
+from scrapy.spiders import Spider, Rule
 import re
 
 from crawler.items import TushareApiCategoryItem, TushareApiItem
 from tusharepro.models import Config
 
 
-class TushareApiSpider(CrawlSpider):
+class TushareApiSpider(Spider):
     name = 'TushareApi'
     scheme = Config.objects.get(code='site_scheme').value
     domain = Config.objects.get(code='site_domain').value
@@ -16,19 +16,14 @@ class TushareApiSpider(CrawlSpider):
     base_url = '%s://%s' % (scheme, domain)
     start_urls = ['%s%s' % (base_url, path)]
 
-    rules = (
-        # Extract links matching 'item.php' and parse them with the spider's method parse_item
-        Rule(LinkExtractor(allow=(path + '$', )), callback='parse_api_category'),
-    )
-
-    def parse_api_category(self, response, level=1, parent=None):
+    def parse(self, response, level=1, parent=None):
         rows = response.xpath('//div[@id="jstree"]/ul/li[@class]') if level == 1 else response.xpath('ul/li[@class]')
         if rows: # category nodes found
             self.logger.debug('found %s category nodes at level %s' % (len(rows), level))
             for row in rows:
                 item = self.parse_api_category_item(row, level, parent)
                 yield item
-                for item in self.parse_api_category(row, level+1, item):
+                for item in self.parse(row, level+1, item):
                     yield item
         else: # try API nodes
             for item in self.parse_api(response, parent):
