@@ -36,24 +36,9 @@ class Account(models.Model):
 
 class CategoryManager(models.Manager):
 
-    # Construct a list of category instance from website.
-    # The pk field was not set for the instance. 
-    def from_website(self):
-        results = []
-        return results
-
     # Sync category list from website to DB.
-    def sync_from_website(self, remove_local=True):
-        objs = self.from_website().sort(key=lambda obj: obj.level)
-
-        for obj in objs:
-            db_obj = self.get(name=obj.name) or None
-            if db_obj: obj.pk = db_obj.pk
-            if obj.parent: obj.parent.refresh_from_db()
-            obj.save()
-
-        if remove_local:
-            self.exclude(name__in=[obj.name for obj in objs]).delete()
+    def sync_from_website(self):
+        pass
 
 
 class ApiCategory(models.Model):
@@ -73,26 +58,12 @@ class ApiCategory(models.Model):
         verbose_name = 'API Category'
 
 
+
 class ApiManager(models.Manager):
 
-    # Construct a list of API instance from website.
-    # The pk field was not set for the instance.
-    def from_website(self):
-        results = []
-        return results
-
-    # Sync API list from website to DB.
+    # Sync API and category list from website to DB.
     def sync_from_website(self, remove_local=True):
-        objs = self.from_website()
-
-        for obj in objs:
-            db_obj = self.get(code=obj.code) or None
-            if db_obj: obj.pk = db_obj.pk
-            if obj.category: obj.category = Category.objects.get(name=obj.category.name) or obj.category.save()
-            obj.save()
-
-        if remove_local:
-            self.exclude(code__in=[obj.code for obj in objs]).delete()
+        pass
 
 
 class Api(models.Model):
@@ -113,8 +84,4 @@ class Api(models.Model):
         verbose_name = 'API'
 
 
-class Tushare():
 
-    def __init__(self, *args, **kwargs):
-        tushare.set_token('e1d688fdb485284402a5240c6436a6455df9885c768cd45f0d21b52d')
-        self.tushare = tushare.pro_api()
