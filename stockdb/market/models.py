@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.functional import classproperty
 
-from common.models import *
+from common.models import Currency, Region
 
 
 # Create your models here.

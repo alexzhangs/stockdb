@@ -1,6 +1,6 @@
 from django.db import models
 
-from common.models import *
+from common.models import Region, Industry
 
 
 # Create your models here.

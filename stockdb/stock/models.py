@@ -5,9 +5,10 @@ from django.utils.functional import classproperty
 from datetime import datetime
 from collections import defaultdict
 
-from common.models import *
-from firm.models import *
-from market.models import *
+from common.models import Currency, Region, Industry, Period
+from firm.models import Firm
+from market.models import Market, Subject
+from tusharepro.models import Api as TushareApi
 
 
 # Create your models here.

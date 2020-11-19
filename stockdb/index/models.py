@@ -1,8 +1,8 @@
 from django.db import models
 
-from market.models import *
-from index.models import *
-from stock.models import *
+from common.models import Region
+from market.models import Market, Subject
+from stock.models import Stock
 
 
 # Create your models here.
