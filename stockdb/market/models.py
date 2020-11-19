@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils.functional import classproperty
 
 from common.models import *
 
@@ -19,6 +20,40 @@ class Market(models.Model):
     dt_opened = models.DateTimeField('Opened')
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
+
+    class Mapper:
+        _acronym_to_code = None
+        _code_to_acronym = None
+
+        @classproperty
+        def acronym_to_code(cls):
+            '''
+            RETURN:
+                {
+                    {acronym}: {code},
+                    ...
+                }
+            '''
+
+            if not cls._acronym_to_code:
+                objs = Market.objects.filter(acronym__isnull=False)
+                cls._acronym_to_code = dict((obj.acronym, obj.code) for obj in objs)
+            return cls._acronym_to_code
+
+        @classproperty
+        def code_to_acronym(cls):
+            '''
+            RETURN:
+                {
+                    {code}: {acronym},
+                    ...
+                }
+            '''
+
+            if not cls._code_to_acronym:
+                objs = Market.objects.filter(acronym__isnull=False)
+                cls._code_to_acronym = dict((obj.code, obj.acronym) for obj in objs)
+            return cls._code_to_acronym
 
     def __str__(self):
         return '%s(%s)' % (self.name, self.code)
@@ -46,6 +81,24 @@ class Subject(models.Model):
     dt_opened = models.DateTimeField('Opened', null=True, blank=True)
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
+
+    class Mapper:
+        _tushare_market_to_code = None
+
+        @classproperty
+        def tushare_exchange_and_market_to_code(cls):
+            '''
+            RETURN:
+                {
+                    {market__acronym} + {subject__name}.split('-')[0]: {code},
+                    ...
+                }
+            '''
+
+            if not cls._tushare_market_to_code:
+                objs = Subject.objects.filter(name__isnull=False)
+                cls._tushare_market_to_code = dict((obj.market.acronym + obj.name.split('-')[0], obj.code) for obj in objs)
+            return cls._tushare_market_to_code
 
     def __str__(self):
         return '%s (%s)' % (self.name, self.code)
