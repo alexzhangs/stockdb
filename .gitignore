@@ -131,3 +131,6 @@ dmypy.json
 # Django
 stockdb/*/migrations/*
 !stockdb/*/migrations/__init__.py
+
+# IDEA
+.idea
