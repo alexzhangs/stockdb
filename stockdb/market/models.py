@@ -13,7 +13,7 @@ class Market(models.Model):
     code = models.CharField(max_length=4, unique=True,
         help_text='Market Identifier Code, ISO 10380, https://www.iso20022.org/market-identifier-codes')
     name = models.CharField(max_length=64)
-    acronym = models.CharField(max_length=16)
+    acronym = models.CharField(max_length=16, unique=True, db_index=True)
     region = models.ForeignKey(Region, on_delete=models.DO_NOTHING, related_name='markets')
     currency = models.ForeignKey(Currency, on_delete=models.DO_NOTHING, related_name='markets')
     website = models.CharField(max_length=128, null=True, blank=True)
