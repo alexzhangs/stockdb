@@ -161,7 +161,6 @@ class StockPeriod(models.Model):
 
             if not cls._period_and_market_to_dates:
                 cls._period_and_market_to_dates = defaultdict(list)
-                # date to string: extra(select={'datestr': "DATE_FORMAT(date, '%%Y%%m%%d')"})
                 objs = StockPeriod.objects.values('date', pm=Concat('period', Value('-'), 'market')).distinct()
                 for obj in objs:
                     cls._period_and_market_to_dates[obj['pm']].append(obj['date'].strftime('%Y%m%d'))
@@ -208,12 +207,10 @@ class StockPeriod(models.Model):
             acronym = Market.Mapper.code_to_acronym.get(mcode)
             pm = '-'.join([PERIOD, mcode])
 
-            if not start_date:
-                start_date = (StockPeriod.Mapper.period_and_market_to_dates.get(pm) or [None])[-1]
-            if not end_date:
-                end_date = datetime.today().strftime('%Y%m%d')
+            start_date_str = start_date or ((StockPeriod.Mapper.period_and_market_to_dates.get(pm) or [None])[-1])
+            end_date_str = end_date or datetime.today().strftime('%Y%m%d')
 
-            tc_api_kwargs = dict(exchange=acronym, start_date=start_date, end_date=end_date, is_open=1)
+            tc_api_kwargs = dict(exchange=acronym, start_date=start_date_str, end_date=end_date_str, is_open=1)
 
             # Call trade calendar API
             tc_df = tc_api.call(**tc_api_kwargs)
