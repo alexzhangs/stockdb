@@ -235,6 +235,9 @@ class StockPeriod(models.Model):
                         tc_skipped.append(sp_row['ts_code'])
                         continue
 
+                    if stock_code not in (Market.Mapper.code_to_stock_code.get(mcode) or []):
+                        continue
+
                     sp = {
                         'stock_id': stock_code,
                         'market_id': mcode,
