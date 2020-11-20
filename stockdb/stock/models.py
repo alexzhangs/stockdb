@@ -175,7 +175,7 @@ class StockPeriod(models.Model):
                 objs = StockPeriod.objects.values('date', pm=Concat('period', Value('-'), 'market')).distinct().order_by('date')
                 for obj in objs:
                     cls._period_and_market_to_dates[obj['pm']].append(obj['date'].strftime('%Y%m%d'))
-            return dict(cls._period_and_market_to_dates)
+            return cls._period_and_market_to_dates
 
     @classmethod
     def sync_daily_from_tushare(cls, market=None, start_date=None, end_date=None, stock_code=None):
@@ -192,6 +192,8 @@ class StockPeriod(models.Model):
                           If None, sync all the stocks matching the other conditions.
         TODO:
             * bulk insert&update
+            * trade date timezone
+            * implement input stock_code logic
         '''
 
         PERIOD = 'DAILY'
