@@ -97,7 +97,9 @@ class Subject(models.Model):
 
             if not cls._tushare_market_to_code:
                 objs = Subject.objects.filter(name__isnull=False)
-                cls._tushare_market_to_code = dict((obj.market.acronym + obj.name.split('-')[0], obj.code) for obj in objs)
+                cls._tushare_market_to_code = dict((
+                    '-'.join([obj.market.acronym, obj.name.split('-')[0]]),
+                    obj.code) for obj in objs)
             return cls._tushare_market_to_code
 
     def __str__(self):

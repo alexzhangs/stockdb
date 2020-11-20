@@ -90,7 +90,8 @@ class Stock(models.Model):
             for index, row in df.iterrows():
                 market_code = Market.Mapper.acronym_to_code.get(row['exchange'])
                 code = market_code + row['symbol']
-                subject_code = Subject.Mapper.tushare_exchange_and_market_to_code.get(row['exchange'] + row['market']) if row['market'] else None
+                subject_code = Subject.Mapper.tushare_exchange_and_market_to_code.get(
+                    '-'.join([row['exchange'], row['market']])) if row['market'] else None
 
                 stock = {
                     'code': code,
