@@ -211,13 +211,13 @@ class StockPeriod(models.Model):
             mapper_cls.Mapper.clear()
 
         created_cnt, updated_cnt = 0, 0
-        skipped = []
+        skipped, failed = [], []
 
         for mcode in ([market] if market else MARKETS):
             print('%s: %s: looping market %s' % (datetime.now(), PERIOD, mcode))
 
             m_created_cnt, m_updated_cnt = 0, 0
-            m_skipped = []
+            m_skipped, m_failed = [], []
 
             acronym = Market.Mapper.code_to_acronym.get(mcode)
             pm = '-'.join([PERIOD, mcode])
@@ -236,7 +236,7 @@ class StockPeriod(models.Model):
                 print('%s: %s: looping market %s for date %s' % (datetime.now(), PERIOD, mcode, tc_date))
 
                 tc_created_cnt, tc_updated_cnt = 0, 0
-                tc_skipped = []
+                tc_skipped, tc_failed = [], []
                 try_update = True if tc_date_str in (StockPeriod.Mapper.period_and_market_to_dates.get(pm) or []) else False
 
                 sp_api_kwargs['trade_date'] = tc_date_str
@@ -268,22 +268,34 @@ class StockPeriod(models.Model):
                         'volume': sp_row['vol'],
                         'amount': sp_row['amount']
                     }
-                    if try_update:
-                        obj, created = cls.objects.update_or_create(stock_id=stock_code, period_id=PERIOD, date=tc_date, defaults=sp)
-                        tc_created_cnt += int(created)
-                        tc_updated_cnt += int(not(created))
-                    else:
-                        obj = cls.objects.create(**sp)
-                        tc_created_cnt += 1
 
-                print('%s: %s: looping market %s for date %s, ended, created %s, updated: %s, skipped: %s' % (datetime.now(), PERIOD, mcode, tc_date, tc_created_cnt, tc_updated_cnt, ','.join(tc_skipped)))
+                    try:
+                        if try_update:
+                            obj, created = cls.objects.update_or_create(stock_id=stock_code, period_id=PERIOD, date=tc_date, defaults=sp)
+                            tc_created_cnt += int(created)
+                            tc_updated_cnt += int(not(created))
+                        else:
+                            obj = cls.objects.create(**sp)
+                            tc_created_cnt += 1
+                    except Exception as e:
+                        tc_failed.append([sp_row['ts_code'], tc_date_str])
+                        print(e)
+                        print(sp)
+
+                print('%s: %s: looping market %s for date %s, ended, created %s, updated: %s, skipped: %s %s, failed: %s %s'
+                      % (datetime.now(), PERIOD, mcode, tc_date, tc_created_cnt, tc_updated_cnt, len(tc_skipped), str(tc_skipped), len(tc_failed), str(tc_failed)))
                 m_created_cnt += tc_created_cnt
                 m_updated_cnt += tc_updated_cnt
                 m_skipped = list(set(m_skipped + tc_skipped))
+                m_failed += tc_failed
 
-            print('%s: %s: looping market %s, ended, created %s, updated: %s, skipped: %s' % (datetime.now(), PERIOD, mcode, m_created_cnt, m_updated_cnt, ','.join(m_skipped)))
+            print('%s: %s: looping market %s, ended, created %s, updated: %s, skipped: %s %s, failed: %s %s'
+                  % (datetime.now(), PERIOD, mcode, m_created_cnt, m_updated_cnt, len(m_skipped), str(m_skipped), len(m_failed), str(m_failed)))
             created_cnt += m_created_cnt
             updated_cnt += m_updated_cnt
             skipped = list(set(skipped + m_skipped))
+            failed += m_failed
 
-        print('%s: %s: sync ended, created %s, updated: %s, skipped: %s' % (datetime.now(), PERIOD, created_cnt, updated_cnt, ','.join(skipped)))
+        print('%s: %s: sync ended, created %s, updated: %s, skipped: %s %s, failed: %s %s'
+              % (datetime.now(), PERIOD, created_cnt, updated_cnt, len(skipped), str(skipped), len(failed), str(failed)))
+
