@@ -142,7 +142,7 @@ class StockPeriod(models.Model):
     change = models.DecimalField(max_digits=8, decimal_places=2)
     percent = models.DecimalField(max_digits=8, decimal_places=2)
     volume = models.DecimalField(max_digits=16, decimal_places=2)
-    amount = models.DecimalField(max_digits=16, decimal_places=4)
+    amount = models.DecimalField(max_digits=16, decimal_places=4, null=True, blank=True)
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
@@ -154,14 +154,14 @@ class StockPeriod(models.Model):
             '''
             RETURN:
                 {
-                    {period__code}-{market__code}: [{stockperiod__date}.strftime('%Y%m%d'), ...],
+                    {period__code}-{market__code}: [{stockperiod__date}.strftime('%Y%m%d'), ...].sort(),
                     ...
                 }
             '''
 
             if not cls._period_and_market_to_dates:
                 cls._period_and_market_to_dates = defaultdict(list)
-                objs = StockPeriod.objects.values('date', pm=Concat('period', Value('-'), 'market')).distinct()
+                objs = StockPeriod.objects.values('date', pm=Concat('period', Value('-'), 'market')).distinct().order_by('date')
                 for obj in objs:
                     cls._period_and_market_to_dates[obj['pm']].append(obj['date'].strftime('%Y%m%d'))
             return dict(cls._period_and_market_to_dates)
