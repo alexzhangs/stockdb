@@ -39,6 +39,10 @@ class Stock(models.Model):
     class Mapper:
         _tushare_code_to_code = None
 
+        @classmethod
+        def clear(cls):
+            cls._tushare_code_to_code = None
+
         @classproperty
         def tushare_code_to_code(cls):
             '''
@@ -151,6 +155,10 @@ class StockPeriod(models.Model):
 
     class Mapper:
         _period_and_market_to_dates = None
+
+        @classmethod
+        def clear(cls):
+            cls._period_and_market_to_dates = None
 
         @classproperty
         def period_and_market_to_dates(cls):

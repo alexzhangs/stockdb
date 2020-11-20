@@ -26,6 +26,12 @@ class Market(models.Model):
         _code_to_acronym = None
         _code_to_stock_code = None
 
+        @classmethod
+        def clear(cls):
+            cls._acronym_to_code = None
+            cls._code_to_acronym = None
+            cls._code_to_stock_code = None
+
         @classproperty
         def acronym_to_code(cls):
             '''
@@ -100,6 +106,10 @@ class Subject(models.Model):
 
     class Mapper:
         _tushare_market_to_code = None
+
+        @classmethod
+        def clear(cls):
+            cls._tushare_market_to_code = None
 
         @classproperty
         def tushare_exchange_and_market_to_code(cls):
