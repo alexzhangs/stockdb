@@ -24,6 +24,7 @@ class Market(models.Model):
     class Mapper:
         _acronym_to_code = None
         _code_to_acronym = None
+        _code_to_stock_code = None
 
         @classproperty
         def acronym_to_code(cls):
@@ -54,6 +55,21 @@ class Market(models.Model):
                 objs = Market.objects.filter(acronym__isnull=False)
                 cls._code_to_acronym = dict((obj.code, obj.acronym) for obj in objs)
             return cls._code_to_acronym
+
+        @classproperty
+        def code_to_stock_code(cls):
+            '''
+            RETURN:
+                {
+                    {code}: [{stock__code}, ...],
+                    ...
+                }
+            '''
+
+            if not cls._code_to_stock_code:
+                objs = Market.objects.all()
+                cls._code_to_stock_code = dict((obj.code, [stock.code for stock in obj.stocks.all()]) for obj in objs)
+            return cls._code_to_stock_code
 
     def __str__(self):
         return '%s(%s)' % (self.name, self.code)
