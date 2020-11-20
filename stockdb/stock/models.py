@@ -146,6 +146,9 @@ class StockPeriod(models.Model):
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
+    class Meta:
+        unique_together = ('stock', 'period', 'date')
+
     class Mapper:
         _period_and_market_to_dates = None
 
