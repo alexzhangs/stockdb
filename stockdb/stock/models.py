@@ -206,6 +206,10 @@ class StockPeriod(models.Model):
         sp_api.set_token()
         sp_api_kwargs = dict(fields='ts_code,trade_date,open,high,low,close,pre_close,change,pct_chg,vol,amount')
 
+        # Clear Mappers before processing
+        for mapper_cls in [Market, Stock, StockPeriod]:
+            mapper_cls.Mapper.clear()
+
         created_cnt, updated_cnt = 0, 0
         skipped = []
 
