@@ -222,7 +222,7 @@ class StockPeriod(models.Model):
 
                 tc_created_cnt, tc_updated_cnt = 0, 0
                 tc_skipped = []
-                try_update = True if tc_date_str in StockPeriod.Mapper.period_and_market_to_dates.get(pm) else False
+                try_update = True if tc_date_str in (StockPeriod.Mapper.period_and_market_to_dates.get(pm) or []) else False
 
                 sp_api_kwargs['trade_date'] = tc_date_str
 
