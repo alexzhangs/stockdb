@@ -203,6 +203,7 @@ class StockPeriod(models.Model):
 
         tc_api = TushareApi.objects.get(code='trade_cal')
         tc_api.set_token()
+        tc_api_kwargs = dict(fields='cal_date', is_open=1)
 
         sp_api = TushareApi.objects.get(code=PERIOD.lower())
         sp_api.set_token()
@@ -227,7 +228,7 @@ class StockPeriod(models.Model):
             start_date_str = start_date or ((StockPeriod.Mapper.period_and_market_to_dates.get(pm) or [None])[-1])
             end_date_str = end_date or datetime.today().strftime('%Y%m%d')
 
-            tc_api_kwargs = dict(exchange=acronym, start_date=start_date_str, end_date=end_date_str, is_open=1)
+            tc_api_kwargs.update({'exchange': acronym, 'start_date': start_date_str, 'end_date': end_date_str})
 
             # Call trade calendar API
             tc_df = tc_api.call(**tc_api_kwargs)
