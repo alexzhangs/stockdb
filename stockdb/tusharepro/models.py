@@ -1,3 +1,6 @@
+import time
+from datetime import datetime
+
 from django.db import models
 import tushare
 
@@ -79,11 +82,48 @@ class Api(models.Model):
     class Meta:
         verbose_name = 'API'
 
+    class Timer:
+
+        def __init__(self, *args, **kwargs):
+            self.reset()
+
+        def reset(self):
+            self.starter = time.time()
+            self.counter = 0
+
+        @property
+        def elapse(self):
+            return int(time.time() - self.starter)
+
+        def count(self, period=60):
+            '''
+            PARAMS:
+                * API throttling period, in seconds.
+            '''
+
+            if self.elapse > period:
+                self.reset()
+
+            self.counter += 1
+
+        def hang(self, period=60):
+            '''
+            PARAMS:
+                * API throttling period, in seconds.
+            '''
+
+            left = period - self.elapse
+            if left > 0:
+                print('%s: WARNING: API has been throttling by server, was called %s times within %s seconds, sleeping %s seconds.' % (
+                    datetime.now(), self.counter, self.elapse, left))
+                time.sleep(left)
+
     def __str__(self):
         return '%s (%s)' % (self.name, self.code)
 
     def __init__(self, *args, **kwargs):
         self.caller = None
+        self.timer = self.Timer()
 
         super(Api, self).__init__(*args, **kwargs)
 
@@ -95,6 +135,12 @@ class Api(models.Model):
 
     def call(self, *args, **kwargs):
         if not self.caller:
-            raise Error('Set a token first with Api.set_token(self, [token]).')
+            raise Exception('Set a token first with Api.set_token(self, [token]).')
         else:
-            return getattr(self.caller, self.code)(*args, **kwargs)
+            func = getattr(self.caller, self.code)
+            while 1:
+                try:
+                    self.timer.count()
+                    return func(*args, **kwargs)
+                except:
+                    self.timer.hang()
