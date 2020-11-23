@@ -323,7 +323,6 @@ class StockPeriod(models.Model):
               % (datetime.now(), PERIOD, created_cnt, updated_cnt, len(skipped), str(skipped), len(failed), str(failed)))
 
     @classmethod
-    def checksum_daily_from_tushare(cls):
         '''
         PARAMS: None
         '''
@@ -378,8 +377,9 @@ class StockPeriod(models.Model):
             ('local_extra_by_date', 'remote_by_date', 'local_by_date'),
             ('local_extra_by_stock', 'remote_by_stock', 'local_by_stock'),
         ]:
-            locals()[vt] = {k: list(set(v or []) - set(globals()[v1].get(k) or [])) for k, v in globals()[v2].items()}
-            locals()[vt] = {k: v for k, v in globals()[vt].items() if v}
+            vt, v1, v2 = locals()[vt], locals()[v1], locals()[v2]
+            vt = {k: list(set(v or []) - set(v1.get(k) or [])) for k, v in v2.items()}
+            vt = {k: v for k, v in vt.items() if v}
 
         ## 4. Output checksum results
         for name, v1, v2 in [
