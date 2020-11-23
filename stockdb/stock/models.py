@@ -381,16 +381,16 @@ class StockPeriod(models.Model):
             locals()[vt] = {k: list(set(v or []) - set(globals()[v1].get(k) or [])) for k, v in globals()[v2].items()}
             locals()[vt] = {k: v for k, v in globals()[vt].items() if v}
 
-        # 4. Output checksum results
+        ## 4. Output checksum results
         for name, v1, v2 in [
             ('missing', 'local_missing_by_date', 'local_missing_by_stock'),
             ('extra', 'local_extra_by_date', 'local_extra_by_stock'),
         ]:
             v1, v2 = locals()[v1], locals()[v2]
-            v = v2 if len(v1.keys()) > len(v2.keys()) else v1
+            vr = v2 if len(v1.keys()) > len(v2.keys()) else v1
 
             print('%s: %s: checksum result: %s data (%s): %s' % (
-                datetime.now(), PERIOD, name, len(v.keys()), str(v)))
+                datetime.now(), PERIOD, name, len(vr.keys()), ','.join(['%s (%s)' % (k, len(vr[k])) for k, v in vr.items()])))
 
         print('%s: %s: checksum ended' % (datetime.now(), PERIOD))
 
