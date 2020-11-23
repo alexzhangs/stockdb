@@ -336,8 +336,6 @@ class StockPeriod(models.Model):
         ## 1. Check remote data
         print('%s: %s: checksum getting remote data' % (datetime.now(), PERIOD))
 
-        remote_by_date, remote_by_stock = defaultdict(list), defaultdict(list)
-
         tc_api = TushareApi.objects.get(code='trade_cal')
         tc_api.set_token()
         tc_api_kwargs = dict(fields='cal_date', is_open=1)
@@ -362,7 +360,6 @@ class StockPeriod(models.Model):
         ## 2. Check local data
         print('%s: %s: checksum getting local data' % (datetime.now(), PERIOD))
 
-        local_by_date, local_by_stock = defaultdict(list), defaultdict(list)
         objs = StockPeriod.objects.filter(period_id=PERIOD, market_id__in=MARKETS).annotate(
             date_str=models.Func(
                 models.F('date'), models.Value('%Y%m%d'), function='DATE_FORMAT', output_field=models.CharField()
