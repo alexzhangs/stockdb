@@ -323,8 +323,11 @@ class StockPeriod(models.Model):
               % (datetime.now(), PERIOD, created_cnt, updated_cnt, len(skipped), str(skipped), len(failed), str(failed)))
 
     @classmethod
+    def checksum_daily_from_tushare(cls, sync=False, remove=False):
         '''
-        PARAMS: None
+        PARAMS:
+            * sync:   [True|False] Sync the missing local data if set True.
+            * remove: [True|False] Remove the extra local data if set True.
         '''
 
         PERIOD = 'DAILY'
@@ -391,6 +394,22 @@ class StockPeriod(models.Model):
 
             print('%s: %s: checksum result: %s data (%s): %s' % (
                 datetime.now(), PERIOD, name, len(vr.keys()), ','.join(['%s (%s)' % (k, len(vr[k])) for k, v in vr.items()])))
+
+        ## 5. Sync the missing local data
+        if sync:
+            print('%s: %s: checksum syncing the missing local data' % (datetime.now(), PERIOD))
+            for k, v in locals()['local_missing_by_date'].items():
+                cls.sync_daily_from_tushare(
+                    start_date=k,
+                    end_date=k,
+                    stock_codes=','.join([Stock.Mapper.code_to_tushare_code.get(ts_code) for ts_code in v])
+                )
+
+        ## 6. Remove the extra local data
+        if remove:
+            print('%s: %s: checksum removing the extra local data' % (datetime.now(), PERIOD))
+            for k, v in locals()['local_extra_by_date'].items():
+                cls.objects.filter(period=PERIOD, date=datetime.strptime(k, '%Y%m%d'), tushare_code__in=v).delete()
 
         print('%s: %s: checksum ended' % (datetime.now(), PERIOD))
 
