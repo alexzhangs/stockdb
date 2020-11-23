@@ -380,9 +380,9 @@ class StockPeriod(models.Model):
             ('local_extra_by_date', 'remote_by_date', 'local_by_date'),
             ('local_extra_by_stock', 'remote_by_stock', 'local_by_stock'),
         ]:
-            vt, v1, v2 = locals()[vt], locals()[v1], locals()[v2]
-            vt = {k: list(set(v or []) - set(v1.get(k) or [])) for k, v in v2.items()}
-            vt = {k: v for k, v in vt.items() if v}
+            v1, v2 = locals()[v1], locals()[v2]
+            locals()[vt] = {k: list(set(v or []) - set(v1.get(k) or [])) for k, v in v2.items()}
+            locals()[vt] = {k: v for k, v in locals()[vt].items() if v}
 
         ## 4. Output checksum results
         for name, v1, v2 in [
