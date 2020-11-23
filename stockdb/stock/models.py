@@ -338,7 +338,7 @@ class StockPeriod(models.Model):
 
         tc_api = TushareApi.objects.get(code='trade_cal')
         tc_api.set_token()
-        tc_api_kwargs = dict(fields='cal_date', is_open=1)
+        tc_api_kwargs = dict(fields='cal_date', end_date=datetime.today().strftime('%Y%m%d'), is_open=1)
 
         sp_api = TushareApi.objects.get(code=PERIOD.lower())
         sp_api.set_token()
