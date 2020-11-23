@@ -197,22 +197,21 @@ class StockPeriod(models.Model):
             return cls._period_and_market_to_dates
 
     @classmethod
-    def sync_daily_from_tushare(cls, market=None, start_date=None, end_date=None, stock_code=None):
+    def sync_daily_from_tushare(cls, market=None, start_date=None, end_date=None, stock_codes=None):
         '''
         PARAMS:
-            * market:     Sync the market only.
-                          If None, sync all: XSHG, XSHE for now.
-            * start_date: Sync starts from the date, example: 19901231.
-                          If None, sync starts from the latest existing date.
-                          If an existing date is not found, sync starts from the earliest date.
-            * end_date:   Sync ends to the date, example: 19991231.
-                          If None, sync ends to today.
-            * stock_code: Sync the stock only, example: XSHG000001.
-                          If None, sync all the stocks matching the other conditions.
+            * market:      Sync the market only.
+                           If None, sync all: XSHG, XSHE for now.
+            * start_date:  Sync starts from the date, example: 19901231.
+                           If None, sync starts from the latest existing date.
+                           If an existing date is not found, sync starts from the earliest date.
+            * end_date:    Sync ends to the date, example: 19991231.
+                           If None, sync ends to today.
+            * stock_codes: Sync the stocks only, example: ['XSHG000001', 'XSHG000002'].
+                           If None, sync all the stocks matching the other conditions.
         TODO:
             * bulk insert&update
             * trade date timezone
-            * implement input stock_code logic
         '''
 
         PERIOD = 'DAILY'
@@ -227,6 +226,8 @@ class StockPeriod(models.Model):
         sp_api = TushareApi.objects.get(code=PERIOD.lower())
         sp_api.set_token()
         sp_api_kwargs = dict(fields='ts_code,trade_date,open,high,low,close,pre_close,change,pct_chg,vol,amount')
+        if stock_codes:
+            sp_api_kwargs['ts_code'] = ','.join(stock_codes)
 
         # Clear Mappers before processing
         for mapper_cls in [Market, Stock, StockPeriod]:
@@ -267,12 +268,12 @@ class StockPeriod(models.Model):
                 sp_df = sp_api.call(**sp_api_kwargs)
 
                 for sp_index, sp_row in sp_df.iterrows():
+                    if sp_row['ts_code'] not in (Market.Mapper.code_to_stock_tushare_code.get(mcode) or []):
+                        continue
+
                     stock_code = Stock.Mapper.tushare_code_to_code.get(sp_row['ts_code'])
                     if not stock_code:
                         tc_skipped.append(sp_row['ts_code'])
-                        continue
-
-                    if stock_code not in (Market.Mapper.code_to_stock_code.get(mcode) or []):
                         continue
 
                     sp = {
