@@ -25,12 +25,14 @@ class Market(models.Model):
         _acronym_to_code = None
         _code_to_acronym = None
         _code_to_stock_code = None
+        _code_to_stock_tushare_code = None
 
         @classmethod
         def clear(cls):
             cls._acronym_to_code = None
             cls._code_to_acronym = None
             cls._code_to_stock_code = None
+            cls._code_to_stock_tushare_code = None
 
         @classproperty
         def acronym_to_code(cls):
@@ -76,6 +78,21 @@ class Market(models.Model):
                 objs = Market.objects.all()
                 cls._code_to_stock_code = dict((obj.code, [stock.code for stock in obj.stocks.all()]) for obj in objs)
             return cls._code_to_stock_code
+
+        @classproperty
+        def code_to_stock_tushare_code(cls):
+            '''
+            RETURN:
+                {
+                    {code}: [{stock__tushare_code}, ...],
+                    ...
+                }
+            '''
+
+            if not cls._code_to_stock_tushare_code:
+                objs = Market.objects.all()
+                cls._code_to_stock_tushare_code = dict((obj.code, [stock.tushare_code for stock in obj.stocks.all()]) for obj in objs)
+            return cls._code_to_stock_tushare_code
 
     def __str__(self):
         return '%s(%s)' % (self.name, self.code)
