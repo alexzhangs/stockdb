@@ -40,10 +40,12 @@ class Stock(models.Model):
 
     class Mapper:
         _tushare_code_to_code = None
+        _code_to_tushare_code = None
 
         @classmethod
         def clear(cls):
             cls._tushare_code_to_code = None
+            cls._code_to_tushare_code = None
 
         @classproperty
         def tushare_code_to_code(cls):
@@ -59,6 +61,21 @@ class Stock(models.Model):
                 objs = Stock.objects.filter(tushare_code__isnull=False)
                 cls._tushare_code_to_code = dict((obj.tushare_code, obj.code) for obj in objs)
             return cls._tushare_code_to_code
+
+        @classproperty
+        def code_to_tushare_code(cls):
+            '''
+            RETURN:
+                {
+                    {code}: {tushare_code},
+                    ...
+                }
+            '''
+
+            if not cls._code_to_tushare_code:
+                objs = Stock.objects.filter(tushare_code__isnull=False)
+                cls._code_to_tushare_code = dict((obj.code, obj.tushare_code) for obj in objs)
+            return cls._code_to_tushare_code
 
     def __str__(self):
         return '%s (%s)' % (self.name, self.code)
