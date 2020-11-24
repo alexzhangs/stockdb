@@ -59,7 +59,7 @@ class Stock(models.Model):
 
             if not cls._tushare_code_to_code:
                 objs = Stock.objects.filter(tushare_code__isnull=False)
-                cls._tushare_code_to_code = dict((obj.tushare_code, obj.code) for obj in objs)
+                cls._tushare_code_to_code = {obj.tushare_code: obj.code for obj in objs}
             return cls._tushare_code_to_code
 
         @classproperty
@@ -74,7 +74,7 @@ class Stock(models.Model):
 
             if not cls._code_to_tushare_code:
                 objs = Stock.objects.filter(tushare_code__isnull=False)
-                cls._code_to_tushare_code = dict((obj.code, obj.tushare_code) for obj in objs)
+                cls._code_to_tushare_code = {obj.code: obj.tushare_code for obj in objs}
             return cls._code_to_tushare_code
 
     def __str__(self):
@@ -386,7 +386,7 @@ class StockPeriod(models.Model):
             )).values_list('date_str', 'stock__tushare_code')
         sp_df = pandas.DataFrame.from_records(objs, columns=['trade_date', 'ts_code'])
 
-        local_by_date = dict(sp_df.groupby('trade_date')['ts_code'].apply(list))
+        local_by_date = sp_df.groupby('trade_date')['ts_code'].apply(list).to_dict()
 
         ## 3. Calculate delta between remote and local data
         print('%s: %s: checksum calculating delta between remote and local data' % (datetime.now(), PERIOD))
