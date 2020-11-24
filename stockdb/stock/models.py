@@ -267,7 +267,7 @@ class StockPeriod(models.Model):
             sp_api_kwargs['ts_code'] = ','.join(stock_codes)
 
         # Clear Mappers before processing
-        for mapper_cls in [Market, Stock, StockPeriod]:
+        for mapper_cls in [cls, Market, Stock]:
             mapper_cls.Mapper.clear()
 
         created_cnt, updated_cnt = 0, 0
@@ -282,7 +282,7 @@ class StockPeriod(models.Model):
             acronym = Market.Mapper.code_to_acronym.get(mcode)
             pm = '-'.join([PERIOD, mcode])
 
-            start_date_str = start_date or ((StockPeriod.Mapper.period_and_market_to_dates.get(pm) or [None])[-1])
+            start_date_str = start_date or ((cls.Mapper.period_and_market_to_dates.get(pm) or [None])[-1])
             end_date_str = end_date or datetime.today().strftime('%Y%m%d')
 
             tc_api_kwargs.update({'exchange': acronym, 'start_date': start_date_str, 'end_date': end_date_str})
@@ -297,7 +297,7 @@ class StockPeriod(models.Model):
 
                 tc_created_cnt, tc_updated_cnt = 0, 0
                 tc_skipped, tc_failed = [], []
-                try_update = True if tc_date_str in (StockPeriod.Mapper.period_and_market_to_dates.get(pm) or []) else False
+                try_update = True if tc_date_str in (cls.Mapper.period_and_market_to_dates.get(pm) or []) else False
 
                 sp_api_kwargs['trade_date'] = tc_date_str
 
