@@ -425,7 +425,7 @@ class StockPeriod(models.Model):
         if remove:
             print('%s: %s: checksum removing the extra local data' % (datetime.now(), PERIOD))
             for k, v in locals()['local_extra_by_date'].items():
-                cls.objects.filter(period=PERIOD, date=datetime.strptime(k, '%Y%m%d'), tushare_code__in=v).delete()
+                cls.objects.filter(period=PERIOD, date=datetime.strptime(k, '%Y%m%d'), stock__tushare_code__in=v).delete()
 
         print('%s: %s: checksum ended' % (datetime.now(), PERIOD))
 
