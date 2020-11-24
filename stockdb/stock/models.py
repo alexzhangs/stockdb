@@ -81,11 +81,12 @@ class Stock(models.Model):
         return '%s (%s)' % (self.name, self.code)
 
     @classmethod
-    def sync_from_tushare(cls, market=None):
+    def sync_from_tushare(cls, market=None, clear_mapper=True):
         '''
         PARAMS:
-            * market:     Sync the market only.
-                          If None, sync all: XSHG, XSHE for now.
+            * market:       Sync the market only.
+                            If None, sync all: XSHG, XSHE for now.
+            * clear_mapper: [True|False] Clear used mappers before sync if set True.
         '''
 
         print('%s: Stock: sync started with args: %s' % (datetime.now(), locals()))
@@ -96,6 +97,10 @@ class Stock(models.Model):
             fields='ts_code,symbol,name,area,market,exchange,list_status,list_date,delist_date',
             exchange = Market.Mapper.code_to_acronym.get(market) if market else None
         )
+
+        # Clear Mappers before sync
+        if clear_mapper:
+            for mapper_cls in [Market, Subject]: mapper_cls.Mapper.clear()
 
         created_cnt, updated_cnt = 0, 0
         skipped = []
@@ -234,18 +239,19 @@ class StockPeriod(models.Model):
             return cls._api_daily_trade_date_to_ts_code
 
     @classmethod
-    def sync_daily_from_tushare(cls, market=None, start_date=None, end_date=None, stock_codes=None):
+    def sync_daily_from_tushare(cls, market=None, start_date=None, end_date=None, stock_codes=None, clear_mapper=True):
         '''
         PARAMS:
-            * market:      Sync the market only.
-                           If None, sync all: XSHG, XSHE for now.
-            * start_date:  Sync starts from the date, example: 19901231.
-                           If None, sync starts from the latest existing date.
-                           If an existing date is not found, sync starts from the earliest date.
-            * end_date:    Sync ends to the date, example: 19991231.
-                           If None, sync ends to today.
-            * stock_codes: Sync the stocks only, example: ['XSHG000001', 'XSHG000002'].
-                           If None, sync all the stocks matching the other conditions.
+            * market:       Sync the market only.
+                            If None, sync all: XSHG, XSHE for now.
+            * start_date:   Sync starts from the date, example: 19901231.
+                            If None, sync starts from the latest existing date.
+                            If an existing date is not found, sync starts from the earliest date.
+            * end_date:     Sync ends to the date, example: 19991231.
+                            If None, sync ends to today.
+            * stock_codes:  Sync the stocks only, example: ['XSHG000001', 'XSHG000002'].
+                            If None, sync all the stocks matching the other conditions.
+            * clear_mapper: [True|False] Clear used mappers before sync if set True.
         TODO:
             * bulk insert&update
             * trade date timezone
@@ -267,9 +273,9 @@ class StockPeriod(models.Model):
         if stock_codes:
             sp_api_kwargs['ts_code'] = ','.join(stock_codes)
 
-        # Clear Mappers before processing
-        for mapper_cls in [cls, Market, Stock]:
-            mapper_cls.Mapper.clear()
+        # Clear Mappers before sync
+        if clear_mapper:
+            for mapper_cls in [cls, Market, Stock]: mapper_cls.Mapper.clear()
 
         created_cnt, updated_cnt = 0, 0
         skipped, failed = [], []
@@ -361,17 +367,22 @@ class StockPeriod(models.Model):
               % (datetime.now(), PERIOD, created_cnt, updated_cnt, len(skipped), str(skipped), len(failed), str(failed)))
 
     @classmethod
-    def checksum_daily_from_tushare(cls, sync=False, remove=False):
+    def checksum_daily_from_tushare(cls, sync=False, remove=False, clear_mapper=True):
         '''
         PARAMS:
-            * sync:   [True|False] Sync the missing local data if set True.
-            * remove: [True|False] Remove the extra local data if set True.
+            * sync:         [True|False] Sync the missing local data if set True.
+            * remove:       [True|False] Remove the extra local data if set True.
+            * clear_mapper: [True|False] Clear used mappers before sync if set True.
         '''
 
         PERIOD = 'DAILY'
         MARKETS = ['XSHG', 'XSHE']
 
         print('%s: %s: checksum started with args: %s' % (datetime.now(), PERIOD, locals()))
+
+        # Clear Mappers before sync
+        if clear_mapper:
+            for mapper_cls in [cls, Stock]: mapper_cls.Mapper.clear()
 
         ## 1. Check remote data
         print('%s: %s: checksum getting remote data' % (datetime.now(), PERIOD))
@@ -418,7 +429,8 @@ class StockPeriod(models.Model):
                 cls.sync_daily_from_tushare(
                     start_date=k,
                     end_date=k,
-                    stock_codes=stocks
+                    stock_codes=stocks,
+                    clear_mapper=False
                 )
 
         ## 6. Remove the extra local data
