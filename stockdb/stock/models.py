@@ -88,7 +88,7 @@ class Stock(models.Model):
                           If None, sync all: XSHG, XSHE for now.
         '''
 
-        print('%s: Stock: sync started' % datetime.now())
+        print('%s: Stock: sync started with args: %s' % (datetime.now(), locals()))
 
         api = TushareApi.objects.get(code='stock_basic')
         api.set_token()
@@ -254,7 +254,7 @@ class StockPeriod(models.Model):
         PERIOD = 'DAILY'
         MARKETS = ['XSHG', 'XSHE']
 
-        print('%s: %s: sync started' % (datetime.now(), PERIOD))
+        print('%s: %s: sync started with args: %s' % (datetime.now(), PERIOD, locals()))
 
         tc_api = TushareApi.objects.get(code='trade_cal')
         tc_api.set_token()
@@ -370,7 +370,7 @@ class StockPeriod(models.Model):
         PERIOD = 'DAILY'
         MARKETS = ['XSHG', 'XSHE']
 
-        print('%s: %s: checksum started' % (datetime.now(), PERIOD))
+        print('%s: %s: checksum started with args: %s' % (datetime.now(), PERIOD, locals()))
 
         ## 1. Check remote data
         print('%s: %s: checksum getting remote data' % (datetime.now(), PERIOD))
