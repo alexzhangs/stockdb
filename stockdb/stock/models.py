@@ -263,6 +263,7 @@ class StockPeriod(models.Model):
         sp_api = TushareApi.objects.get(code=PERIOD.lower())
         sp_api.set_token()
         sp_api_kwargs = dict(fields='ts_code,trade_date,open,high,low,close,pre_close,change,pct_chg,vol,amount')
+        stock_codes = [x for x in stock_codes if x is not None]
         if stock_codes:
             sp_api_kwargs['ts_code'] = ','.join(stock_codes)
 
@@ -380,7 +381,7 @@ class StockPeriod(models.Model):
         ## 2. Check local data
         print('%s: %s: checksum getting local data' % (datetime.now(), PERIOD))
 
-        objs = StockPeriod.objects.filter(period_id=PERIOD, market_id__in=MARKETS).annotate(
+        objs = StockPeriod.objects.filter(period_id=PERIOD, market_id__in=MARKETS, stock__tushare_code__isnull=False).annotate(
             date_str=models.Func(
                 models.F('date'), models.Value('%Y%m%d'), function='DATE_FORMAT', output_field=models.CharField()
             )).values_list('date_str', 'stock__tushare_code')
