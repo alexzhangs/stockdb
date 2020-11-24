@@ -174,10 +174,12 @@ class StockPeriod(models.Model):
 
     class Mapper:
         _period_and_market_to_dates = None
+        _api_daily_trade_date_to_ts_code = None
 
         @classmethod
         def clear(cls):
             cls._period_and_market_to_dates = None
+            cls._api_daily_trade_date_to_ts_code = None
 
         @classproperty
         def period_and_market_to_dates(cls):
@@ -195,6 +197,41 @@ class StockPeriod(models.Model):
                 for obj in objs:
                     cls._period_and_market_to_dates[obj['pm']].append(obj['date'].strftime('%Y%m%d'))
             return cls._period_and_market_to_dates
+
+        @classproperty
+        def api_daily_trade_date_to_ts_code(cls):
+            '''
+            RETURN:
+                {
+                    {trade_date}: [{ts_code}, ...]
+                    ...
+                }
+            '''
+
+            if not cls._api_daily_trade_date_to_ts_code:
+                PERIOD = 'DAILY'
+                MARKETS = ['XSHG', 'XSHE']
+
+                tc_api = TushareApi.objects.get(code='trade_cal')
+                tc_api.set_token()
+                tc_api_kwargs = dict(fields='cal_date', end_date=datetime.today().strftime('%Y%m%d'), is_open=1)
+
+                sp_api = TushareApi.objects.get(code=PERIOD.lower())
+                sp_api.set_token()
+                sp_api_kwargs = dict(fields='trade_date, ts_code')
+
+                # Call trade calendar API
+                tc_df = tc_api.call(**tc_api_kwargs)
+
+                sp_df = pandas.DataFrame()
+                for tc_index, tc_row in tc_df.iterrows():
+                    sp_api_kwargs['trade_date'] = tc_row['cal_date']
+
+                    # Call daily trade data API
+                    sp_df = sp_df.append(sp_api.call(**sp_api_kwargs))
+
+                cls._api_daily_trade_date_to_ts_code = sp_df.groupby('trade_date')['ts_code'].apply(list).to_dict()
+            return cls._api_daily_trade_date_to_ts_code
 
     @classmethod
     def sync_daily_from_tushare(cls, market=None, start_date=None, end_date=None, stock_codes=None):
@@ -338,25 +375,7 @@ class StockPeriod(models.Model):
         ## 1. Check remote data
         print('%s: %s: checksum getting remote data' % (datetime.now(), PERIOD))
 
-        tc_api = TushareApi.objects.get(code='trade_cal')
-        tc_api.set_token()
-        tc_api_kwargs = dict(fields='cal_date', end_date=datetime.today().strftime('%Y%m%d'), is_open=1)
-
-        sp_api = TushareApi.objects.get(code=PERIOD.lower())
-        sp_api.set_token()
-        sp_api_kwargs = dict(fields='ts_code,trade_date')
-
-        # Call trade calendar API
-        tc_df = tc_api.call(**tc_api_kwargs)
-
-        sp_df = pandas.DataFrame()
-        for tc_index, tc_row in tc_df.iterrows():
-            sp_api_kwargs['trade_date'] = tc_row['cal_date']
-
-            # Call daily trade data API
-            sp_df = sp_df.append(sp_api.call(**sp_api_kwargs))
-
-        remote_by_date = dict(sp_df.groupby('trade_date')['ts_code'].apply(list))
+        remote_by_date = cls.Mapper.api_daily_trade_date_to_ts_code
 
         ## 2. Check local data
         print('%s: %s: checksum getting local data' % (datetime.now(), PERIOD))
