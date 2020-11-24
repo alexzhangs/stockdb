@@ -357,7 +357,6 @@ class StockPeriod(models.Model):
             sp_df = sp_df.append(sp_api.call(**sp_api_kwargs))
 
         remote_by_date = dict(sp_df.groupby('trade_date')['ts_code'].apply(list))
-        remote_by_stock = dict(sp_df.groupby('ts_code')['trade_date'].apply(list))
 
         ## 2. Check local data
         print('%s: %s: checksum getting local data' % (datetime.now(), PERIOD))
@@ -369,29 +368,24 @@ class StockPeriod(models.Model):
         sp_df = pandas.DataFrame.from_records(objs, columns=['trade_date', 'ts_code'])
 
         local_by_date = dict(sp_df.groupby('trade_date')['ts_code'].apply(list))
-        local_by_stock = dict(sp_df.groupby('ts_code')['trade_date'].apply(list))
 
         ## 3. Calculate delta between remote and local data
         print('%s: %s: checksum calculating delta between remote and local data' % (datetime.now(), PERIOD))
 
         for vt, v1, v2 in [
             ('local_missing_by_date', 'local_by_date', 'remote_by_date'),
-            ('local_missing_by_stock', 'local_by_stock', 'remote_by_stock'),
             ('local_extra_by_date', 'remote_by_date', 'local_by_date'),
-            ('local_extra_by_stock', 'remote_by_stock', 'local_by_stock'),
         ]:
             v1, v2 = locals()[v1], locals()[v2]
             locals()[vt] = {k: list(set(v or []) - set(v1.get(k) or [])) for k, v in v2.items()}
             locals()[vt] = {k: v for k, v in locals()[vt].items() if v}
 
         ## 4. Output checksum results
-        for name, v1, v2 in [
-            ('missing', 'local_missing_by_date', 'local_missing_by_stock'),
-            ('extra', 'local_extra_by_date', 'local_extra_by_stock'),
+        for name, vr in [
+            ('missing', 'local_missing_by_date'),
+            ('extra', 'local_extra_by_date'),
         ]:
-            v1, v2 = locals()[v1], locals()[v2]
-            vr = v2 if len(v1.keys()) > len(v2.keys()) else v1
-
+            vr = locals()[vr]
             print('%s: %s: checksum result: %s data (%s): %s' % (
                 datetime.now(), PERIOD, name, len(vr.keys()), ','.join(['%s (%s)' % (k, len(vr[k])) for k, v in vr.items()])))
 
