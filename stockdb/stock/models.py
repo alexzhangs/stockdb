@@ -399,10 +399,12 @@ class StockPeriod(models.Model):
         if sync:
             print('%s: %s: checksum syncing the missing local data' % (datetime.now(), PERIOD))
             for k, v in locals()['local_missing_by_date'].items():
+                stocks = [Stock.Mapper.tushare_code_to_code.get(ts_code) for ts_code in v]
+                stocks = [x for x in stocks if x is not None]
                 cls.sync_daily_from_tushare(
                     start_date=k,
                     end_date=k,
-                    stock_codes=','.join([Stock.Mapper.code_to_tushare_code.get(ts_code) for ts_code in v])
+                    stock_codes=stocks
                 )
 
         ## 6. Remove the extra local data
