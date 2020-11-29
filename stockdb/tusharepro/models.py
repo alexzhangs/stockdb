@@ -136,6 +136,16 @@ class Api(models.Model):
         else:
             self.caller.__init__(Account.objects.first().token)
 
+    @classmethod
+    def geterror(cls, exception):
+        message = str(exception)
+        if '最多访问该接口' in message:
+            return 429, 'Too Many Requests'
+        elif 'TOKEN无效' in message:
+            return 401, 'Unauthorized'
+        else:
+            return 599, 'Unknown'
+
     def call(self, *args, **kwargs):
         if not self.caller._DataApi__token:
             raise Exception('Set a token first with Api.set_token(self, [token]).')
@@ -145,5 +155,9 @@ class Api(models.Model):
                 try:
                     self.timer.count()
                     return func(*args, **kwargs)
-                except:
-                    self.timer.hang()
+                except Exception as e:
+                    code, name = self.geterror(e)
+                    if code == 429:
+                        self.timer.hang()
+                    else:
+                        raise(e)
