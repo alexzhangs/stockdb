@@ -4,7 +4,7 @@ from django.db import models
 from django.db.models import Value
 from django.db.models.functions import Concat
 from django.utils.functional import classproperty
-from datetime import datetime
+from datetime import datetime, date
 from collections import defaultdict
 
 from common.models import Currency, Region, Industry, Period
@@ -204,7 +204,7 @@ class StockPeriod(models.Model):
     change = models.DecimalField(max_digits=8, decimal_places=2)
     percent = models.DecimalField(max_digits=8, decimal_places=2)
     volume = models.DecimalField(max_digits=16, decimal_places=2)
-    amount = models.DecimalField(max_digits=16, decimal_places=4, null=True, blank=True)
+    amount = models.DecimalField(max_digits=16, decimal_places=4)
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
@@ -324,132 +324,187 @@ class StockPeriod(models.Model):
             return cls._api_daily_trade_date_to_market_to_ts_code
 
     @classmethod
-    def sync_daily_from_tushare(cls, market=None, start_date=None, end_date=None, stock_codes=None, clear_mapper=True):
+    def sync_daily_from_tushare(cls, market, dates=None, start_date=None, end_date=None, stocks=None, clear_mapper=True):
         '''
         PARAMS:
-            * market:       Sync the market only.
-                            If None, sync all: XSHG, XSHE for now.
-            * start_date:   Sync starts from the date, example: 19901231.
-                            If None, sync starts from the latest existing date.
-                            If an existing date is not found, sync starts from the earliest date.
+            * market:       The market to sync, example: 'XSHG'.
+            * dates:        Sync for the dates, example: '19991231' or ['19991230', '19991231'].
+                            If Set, `start_date` and `end_date` are ignored.
+            * start_date:   Sync starts from the date, example: 19900101.
+                            If None, sync starts from the latest synced date in the appreciated market.
+                            If an existing synced date is not found, sync starts from the earliest date.
             * end_date:     Sync ends to the date, example: 19991231.
                             If None, sync ends to today.
-            * stock_codes:  Sync the stocks only, example: ['XSHG000001', 'XSHG000002'].
-                            If None, sync all the stocks matching the other conditions.
-            * clear_mapper: [True|False] Clear used mappers before sync if set True.
+            * stocks:       Sync the stocks only, example: 'XSHG000001' or ['XSHG000001', 'XSHG000002'].
+                            If None, sync all the stocks of the market.
+            * clear_mapper: [True|False] Clear used mappers before to sync if set True.
         TODO:
-            * bulk insert&update
+            * custom cached class property, to replace mappers
             * trade date timezone
         '''
 
         PERIOD = 'DAILY'
-        MARKETS = ['XSHG', 'XSHE']
 
         print('%s: %s: sync started with args: %s' % (datetime.now(), PERIOD, locals()))
 
-        tc_api = TushareApi.objects.get(code='trade_cal')
-        tc_api.set_token()
-        tc_api_kwargs = dict(fields='cal_date', is_open=1)
+        ## Inner Functions
+        def clear_date(d):
+            if isinstance(d, str):
+                return d
+            if isinstance(d, (date, datetime)):
+                return date.strftime(d, '%Y%m%d')
+            else:
+                raise TypeError('requires one of `%s` or `%s` in format `%%Y%%m%%d`, but received a `%s`.' %
+                                ((date, datetime), str, type(d)))
 
-        sp_api = TushareApi.objects.get(code=PERIOD.lower())
-        sp_api.set_token()
-        sp_api_kwargs = dict(fields='ts_code,trade_date,open,high,low,close,pre_close,change,pct_chg,vol,amount')
-        stock_codes = [x for x in stock_codes if x is not None]
-        if stock_codes:
-            sp_api_kwargs['ts_code'] = ','.join(stock_codes)
+        def get_start_date(market, stocks=[]):
+            if stocks:
+                try:
+                    d = cls.objects.filter(period_id=PERIOD, market_id=market, stock_id__in=stocks).latest('date').date
+                except cls.DoesNotExist:
+                    d = None
+            else:
+                d = (cls.Mapper.period_and_market_to_dates.get('-'.join([PERIOD, market])) or [None])[-1]
+
+            return clear_date(d) if d is not None else d
+
+        def get_end_date():
+            return clear_date(datetime.today())
+
+        def get_dates(market, start_date, end_date):
+            if start_date == end_date:
+                results = [start_date]
+            else:
+                api = TushareApi.objects.get(code='trade_cal')
+                api.set_token()
+
+                # Call trade calendar API
+                df = api.call(
+                    fields='cal_date',
+                    exchange=Market.Mapper.code_to_acronym.get(market),
+                    start_date=start_date,
+                    end_date=end_date,
+                    is_open=1)
+                results = df['cal_date'].to_list()
+
+            results = [x for x in results if x]
+            return results
+
+        def save_sp(market, trade_date, df, create=True, update=False):
+            PERIOD = 'DAILY'
+            print('%s: %s: save StockPeriod with args: %s' % (datetime.now(), PERIOD, locals()))
+
+            # add column market_id to df
+            df.insert(loc=0, column='market_id', value=df.ts_code.apply(Stock.Mapper.tushare_code_to_market.get))
+
+            # filter df rows with appreciated market
+            df = df[df.market_id == market].copy()
+
+            # add column pk to df if found one in DB
+            df.insert(loc=0, column='pk', value=df.apply(
+                lambda row: StockPeriod.Mapper.daily_date_to_stock_tushare_code_to_pk.get(trade_date, {}).get(
+                    row.ts_code), axis=1))
+
+            # rename columns name to map to DB model
+            df.rename(columns={'trade_date': 'date', 'pct_chg': 'percent', 'vol': 'volume'},
+                      inplace=True)
+
+            # update column date in df
+            df.loc[:, 'date'] = datetime.strptime(trade_date, '%Y%m%d').date()
+
+            # add columns to df
+            df.insert(loc=1, column='stock_id', value=df.ts_code.apply(Stock.Mapper.tushare_code_to_code.get))
+            df.insert(loc=3, column='period_id', value=PERIOD)
+
+            # remove unused columns
+            df.drop(['ts_code'], axis=1, inplace=True)
+
+            skipped = []
+
+            created = []
+            if create:
+                # filter df rows for creating
+                cdf = df[df.pk.isnull()].copy()
+                if len(cdf):
+                    cdf.drop(['pk'], axis=1, inplace=True)
+                    cleaned_cdf = cdf.dropna()
+                    skipped.extend(cdf[~cdf.index.isin(cleaned_cdf.index)].to_dict('records'))
+
+                    # bulk create
+                    created = cls.objects.bulk_create(
+                        [cls(**d) for d in cleaned_cdf.to_dict('records')],
+                        batch_size=5000)
+
+            updated = []
+            if update:
+                # filter df rows for updating
+                udf = df[~df.pk.isnull()]
+                if len(udf):
+                    cleaned_udf = udf.dropna()
+                    skipped.extend(udf[~udf.index.isin(cleaned_udf.index)].to_dict('records'))
+
+                    # bulk update
+                    updated = cls.objects.bulk_update(
+                        [cls(**d) for d in udf.to_dict('records')],
+                        ['pre_close', 'open', 'close', 'high', 'low', 'change', 'percent', 'volume', 'amount'],
+                        batch_size=5000)
+
+            print('%s: %s: save StockPeriod ended, created: %s, updated: %s, skipped: %s'
+                  % (datetime.now(), PERIOD, len(created), len(updated), len(skipped)))
+
+            return len(created), len(updated), len(skipped), skipped
+
+        def sync(market, dates, stocks=[]):
+            api = TushareApi.objects.get(code=PERIOD.lower())
+            api.set_token()
+            api_kwargs = dict(fields='ts_code,trade_date,open,high,low,close,pre_close,change,pct_chg,vol,amount')
+            if stocks:
+                api_kwargs['ts_code'] = ','.join(stocks)
+
+            created_cnt, updated_cnt, skipped_cnt, skipped = 0, 0, 0, []
+            for d in dates:
+                api_kwargs['trade_date'] = d
+
+                # Call daily trade data API
+                df = api.call(**api_kwargs)
+
+                i, j, k, m = save_sp(market, d, df)
+                created_cnt += i
+                updated_cnt += j
+                skipped_cnt += k
+                skipped.extend(m)
+
+            return created_cnt, updated_cnt, skipped_cnt, skipped
+
+        ## Inner Functions End
+
+        ## Parameters
+        if isinstance(dates, (list, tuple, set)):
+            dates = [clear_date(x) for x in dates if x is not None]
+        else:
+            dates = [clear_date(dates)] if dates is not None else []
+
+        if isinstance(stocks, (list, tuple, set)):
+            stocks = [x for x in stocks if x is not None]
+        else:
+            stocks = [stocks] if stocks is not None else []
+        ## Parameters End
+
+        ## Main
 
         # Clear Mappers before sync
         if clear_mapper:
             for mapper_cls in [cls, Market, Stock]: mapper_cls.Mapper.clear()
 
-        created_cnt, updated_cnt = 0, 0
-        skipped, failed = [], []
+        if not dates:
+            start_date = clear_date(start_date) if start_date else get_start_date(market, stocks)
+            end_date = clear_date(end_date) if end_date else get_end_date()
+            dates = get_dates(market, start_date, end_date)
 
-        for mcode in ([market] if market else MARKETS):
-            print('%s: %s: looping market %s' % (datetime.now(), PERIOD, mcode))
+        created_cnt, updated_cnt, skipped_cnt, skipped = sync(market, dates, stocks)
 
-            m_created_cnt, m_updated_cnt = 0, 0
-            m_skipped, m_failed = [], []
-
-            acronym = Market.Mapper.code_to_acronym.get(mcode)
-            pm = '-'.join([PERIOD, mcode])
-
-            start_date_str = start_date or ((cls.Mapper.period_and_market_to_dates.get(pm) or [None])[-1])
-            end_date_str = end_date or datetime.today().strftime('%Y%m%d')
-
-            tc_api_kwargs.update({'exchange': acronym, 'start_date': start_date_str, 'end_date': end_date_str})
-
-            # Call trade calendar API
-            tc_df = tc_api.call(**tc_api_kwargs)
-
-            for tc_index, tc_row in tc_df.iterrows():
-                tc_date_str = tc_row['cal_date']
-                tc_date = datetime.strptime(tc_date_str, '%Y%m%d').date()
-                print('%s: %s: looping market %s for date %s' % (datetime.now(), PERIOD, mcode, tc_date))
-
-                tc_created_cnt, tc_updated_cnt = 0, 0
-                tc_skipped, tc_failed = [], []
-                try_update = True if tc_date_str in (cls.Mapper.period_and_market_to_dates.get(pm) or []) else False
-
-                sp_api_kwargs['trade_date'] = tc_date_str
-
-                # Call daily trade data API
-                sp_df = sp_api.call(**sp_api_kwargs)
-
-                for sp_index, sp_row in sp_df.iterrows():
-                    if sp_row['ts_code'] not in (Market.Mapper.code_to_stock_tushare_code.get(mcode) or []):
-                        continue
-
-                    stock_code = Stock.Mapper.tushare_code_to_code.get(sp_row['ts_code'])
-                    if not stock_code:
-                        tc_skipped.append(sp_row['ts_code'])
-                        continue
-
-                    sp = {
-                        'stock_id': stock_code,
-                        'market_id': mcode,
-                        'period_id': PERIOD,
-                        'date': tc_date,
-                        'pre_close': sp_row['pre_close'],
-                        'open': sp_row['open'],
-                        'close': sp_row['close'],
-                        'high': sp_row['high'],
-                        'low': sp_row['low'],
-                        'change': sp_row['change'],
-                        'percent': sp_row['pct_chg'],
-                        'volume': sp_row['vol'],
-                        'amount': sp_row['amount']
-                    }
-
-                    try:
-                        if try_update:
-                            obj, created = cls.objects.update_or_create(stock_id=stock_code, period_id=PERIOD, date=tc_date, defaults=sp)
-                            tc_created_cnt += int(created)
-                            tc_updated_cnt += int(not(created))
-                        else:
-                            obj = cls.objects.create(**sp)
-                            tc_created_cnt += 1
-                    except Exception as e:
-                        tc_failed.append([sp_row['ts_code'], tc_date_str])
-                        print(e)
-                        print(sp)
-
-                print('%s: %s: looping market %s for date %s, ended, created %s, updated: %s, skipped: %s %s, failed: %s %s'
-                      % (datetime.now(), PERIOD, mcode, tc_date, tc_created_cnt, tc_updated_cnt, len(tc_skipped), str(tc_skipped), len(tc_failed), str(tc_failed)))
-                m_created_cnt += tc_created_cnt
-                m_updated_cnt += tc_updated_cnt
-                m_skipped = list(set(m_skipped + tc_skipped))
-                m_failed += tc_failed
-
-            print('%s: %s: looping market %s, ended, created %s, updated: %s, skipped: %s %s, failed: %s %s'
-                  % (datetime.now(), PERIOD, mcode, m_created_cnt, m_updated_cnt, len(m_skipped), str(m_skipped), len(m_failed), str(m_failed)))
-            created_cnt += m_created_cnt
-            updated_cnt += m_updated_cnt
-            skipped = list(set(skipped + m_skipped))
-            failed += m_failed
-
-        print('%s: %s: sync ended, created %s, updated: %s, skipped: %s %s, failed: %s %s'
-              % (datetime.now(), PERIOD, created_cnt, updated_cnt, len(skipped), str(skipped), len(failed), str(failed)))
+        print('%s: %s: sync ended, created: %s, updated: %s, skipped: %s %s'
+              % (datetime.now(), PERIOD, created_cnt, updated_cnt, len(skipped), skipped))
 
     @classmethod
     def checksum_daily_from_tushare(cls, sync=False, remove=False, clear_mapper=True):
