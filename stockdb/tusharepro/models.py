@@ -125,19 +125,19 @@ class Api(models.Model):
         return '%s (%s)' % (self.name, self.code)
 
     def __init__(self, *args, **kwargs):
-        self.caller = None
+        self.caller = tushare.pro_api()
         self.timer = self.Timer(self)
 
         super(Api, self).__init__(*args, **kwargs)
 
     def set_token(self, token=None):
         if token:
-            self.caller = tushare.pro_api(token)
+            self.caller.__init__(token)
         else:
-            self.caller = tushare.pro_api(Account.objects.first().token)
+            self.caller.__init__(Account.objects.first().token)
 
     def call(self, *args, **kwargs):
-        if not self.caller:
+        if not self.caller._DataApi__token:
             raise Exception('Set a token first with Api.set_token(self, [token]).')
         else:
             func = getattr(self.caller, self.code)
