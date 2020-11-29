@@ -84,6 +84,8 @@ class Api(models.Model):
 
     class Timer:
 
+        PERIOD = 61
+
         def __init__(self, api, *args, **kwargs):
             self.api = api
             self.reset()
@@ -96,7 +98,7 @@ class Api(models.Model):
         def elapse(self):
             return int(time.time() - self.starter)
 
-        def count(self, period=60):
+        def count(self, period=PERIOD):
             '''
             PARAMS:
                 * API throttling period, in seconds.
@@ -107,7 +109,7 @@ class Api(models.Model):
 
             self.counter += 1
 
-        def hang(self, period=60):
+        def hang(self, period=PERIOD):
             '''
             PARAMS:
                 * API throttling period, in seconds.
