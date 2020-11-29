@@ -84,7 +84,8 @@ class Api(models.Model):
 
     class Timer:
 
-        def __init__(self, *args, **kwargs):
+        def __init__(self, api, *args, **kwargs):
+            self.api = api
             self.reset()
 
         def reset(self):
@@ -114,8 +115,8 @@ class Api(models.Model):
 
             left = period - self.elapse
             if left > 0:
-                print('%s: WARNING: API has been throttling by server, was called %s times within %s seconds, sleeping %s seconds.' % (
-                    datetime.now(), self.counter, self.elapse, left))
+                print('%s: %s: WARNING: API has been throttling by server, was called %s times within %s seconds, sleeping %s seconds.' % (
+                    datetime.now(), self.api.code, self.counter, self.elapse, left))
                 time.sleep(left)
 
     def __str__(self):
@@ -123,7 +124,7 @@ class Api(models.Model):
 
     def __init__(self, *args, **kwargs):
         self.caller = None
-        self.timer = self.Timer()
+        self.timer = self.Timer(self)
 
         super(Api, self).__init__(*args, **kwargs)
 
