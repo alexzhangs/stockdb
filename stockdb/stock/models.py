@@ -41,11 +41,15 @@ class Stock(models.Model):
     class Mapper:
         _tushare_code_to_code = None
         _code_to_tushare_code = None
+        _code_to_market = None
+        _tushare_code_to_market = None
 
         @classmethod
         def clear(cls):
             cls._tushare_code_to_code = None
             cls._code_to_tushare_code = None
+            cls._code_to_market = None
+            cls._tushare_code_to_market = None
 
         @classproperty
         def tushare_code_to_code(cls):
@@ -76,6 +80,36 @@ class Stock(models.Model):
                 objs = Stock.objects.filter(tushare_code__isnull=False)
                 cls._code_to_tushare_code = {obj.code: obj.tushare_code for obj in objs}
             return cls._code_to_tushare_code
+
+        @classproperty
+        def code_to_market(cls):
+            '''
+            RETURN:
+                {
+                    {code}: {market_code},
+                    ...
+                }
+            '''
+
+            if not cls._code_to_market:
+                objs = Stock.objects.all()
+                cls._code_to_market = {obj.code: obj.market_id for obj in objs}
+            return cls._code_to_market
+
+        @classproperty
+        def tushare_code_to_market(cls):
+            '''
+            RETURN:
+                {
+                    {tushare_code}: {market_code},
+                    ...
+                }
+            '''
+
+            if not cls._tushare_code_to_market:
+                objs = Stock.objects.filter(tushare_code__isnull=False)
+                cls._tushare_code_to_market = {obj.tushare_code: obj.market_id for obj in objs}
+            return cls._tushare_code_to_market
 
     def __str__(self):
         return '%s (%s)' % (self.name, self.code)
@@ -179,19 +213,23 @@ class StockPeriod(models.Model):
 
     class Mapper:
         _period_and_market_to_dates = None
-        _api_daily_trade_date_to_ts_code = None
+        _daily_date_to_stock_tushare_code_to_pk = None
+        _daily_date_to_market_to_stock_tushare_code = None
+        _api_daily_trade_date_to_market_to_ts_code = None
 
         @classmethod
         def clear(cls):
             cls._period_and_market_to_dates = None
-            cls._api_daily_trade_date_to_ts_code = None
+            cls._daily_date_to_stock_tushare_code_to_pk = None
+            cls._daily_date_to_market_to_stock_tushare_code = None
+            cls._api_daily_trade_date_to_market_to_ts_code = None
 
         @classproperty
         def period_and_market_to_dates(cls):
             '''
             RETURN:
                 {
-                    {period__code}-{market__code}: [{stockperiod__date}.strftime('%Y%m%d'), ...].sort(),
+                    {period_id}-{market_id}: [{date}.strftime('%Y%m%d'), ...].sort(),
                     ...
                 }
             '''
@@ -204,39 +242,86 @@ class StockPeriod(models.Model):
             return cls._period_and_market_to_dates
 
         @classproperty
-        def api_daily_trade_date_to_ts_code(cls):
+        def daily_date_to_stock_tushare_code_to_pk(cls):
             '''
             RETURN:
                 {
-                    {trade_date}: [{ts_code}, ...]
+                    {date}.strftime('%Y%m%d'): {
+                        {stock__tushare_code}: {pk},
+                        ...
+                    },
                     ...
                 }
             '''
 
-            if not cls._api_daily_trade_date_to_ts_code:
-                PERIOD = 'DAILY'
-                MARKETS = ['XSHG', 'XSHE']
+            PERIOD = 'DAILY'
+            if not cls._daily_date_to_stock_tushare_code_to_pk:
+                objs = StockPeriod.objects.filter(period_id=PERIOD, stock__tushare_code__isnull=False).values('date', 'stock__tushare_code', 'pk')
+                result = defaultdict(dict)
+                for obj in objs:
+                    result[obj['date'].strftime('%Y%m%d')][obj['stock__tushare_code']] = obj['pk']
+                cls._daily_date_to_stock_tushare_code_to_pk = result
+            return cls._daily_date_to_stock_tushare_code_to_pk
 
+        @classproperty
+        def daily_date_to_market_to_stock_tushare_code(cls):
+            '''
+            RETURN:
+                {
+                    {date}.strftime('%Y%m%d'): {
+                        {market_id}: [{stock__tushare_code}, ...],
+                        ...
+                    },
+                    ...
+                }
+            '''
+
+            PERIOD = 'DAILY'
+            if not cls._daily_date_to_market_to_stock_tushare_code:
+                objs = StockPeriod.objects.filter(period_id=PERIOD, stock__tushare_code__isnull=False).values('date', 'stock__market_id', 'stock__tushare_code')
+                result = defaultdict(lambda: defaultdict(list))
+                for obj in objs:
+                    result[obj['date'].strftime('%Y%m%d')][obj['stock__market_id']].append(obj['stock__tushare_code'])
+                cls._daily_date_to_market_to_stock_tushare_code = result
+            return cls._daily_date_to_market_to_stock_tushare_code
+
+        @classproperty
+        def api_daily_trade_date_to_market_to_ts_code(cls):
+            '''
+            RETURN:
+                {
+                    {trade_date}: {
+                        {market}: [{ts_code}, ...],
+                        ...
+                    },
+                    ...
+                }
+            '''
+
+            PERIOD = 'DAILY'
+            if not cls._api_daily_trade_date_to_market_to_ts_code:
                 tc_api = TushareApi.objects.get(code='trade_cal')
                 tc_api.set_token()
-                tc_api_kwargs = dict(fields='cal_date', end_date=datetime.today().strftime('%Y%m%d'), is_open=1)
 
                 sp_api = TushareApi.objects.get(code=PERIOD.lower())
                 sp_api.set_token()
-                sp_api_kwargs = dict(fields='trade_date, ts_code')
+                sp_api_kwargs = dict(fields='ts_code')
 
                 # Call trade calendar API
-                tc_df = tc_api.call(**tc_api_kwargs)
+                tc_df = tc_api.call(fields='cal_date', end_date=datetime.today().strftime('%Y%m%d'), is_open=1)
 
-                sp_df = pandas.DataFrame()
+                result = {}
                 for tc_index, tc_row in tc_df.iterrows():
                     sp_api_kwargs['trade_date'] = tc_row['cal_date']
-
                     # Call daily trade data API
-                    sp_df = sp_df.append(sp_api.call(**sp_api_kwargs))
+                    sp_df = sp_api.call(**sp_api_kwargs)
 
-                cls._api_daily_trade_date_to_ts_code = sp_df.groupby('trade_date')['ts_code'].apply(list).to_dict()
-            return cls._api_daily_trade_date_to_ts_code
+                    # add new column to df
+                    sp_df['market'] = [Stock.Mapper.tushare_code_to_market.get(x) for x in sp_df.ts_code]
+
+                    result[tc_row['cal_date']] = sp_df.groupby('market')['ts_code'].apply(list).to_dict()
+                cls._api_daily_trade_date_to_market_to_ts_code = result
+            return cls._api_daily_trade_date_to_market_to_ts_code
 
     @classmethod
     def sync_daily_from_tushare(cls, market=None, start_date=None, end_date=None, stock_codes=None, clear_mapper=True):
