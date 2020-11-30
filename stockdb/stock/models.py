@@ -455,6 +455,7 @@ class StockPeriod(models.Model):
             api_kwargs = dict(fields='ts_code,trade_date,open,high,low,close,pre_close,change,pct_chg,vol,amount')
             if stocks:
                 api_kwargs['ts_code'] = ','.join(stocks)
+                stocks = [Stock.Mapper.code_to_tushare_code.get(x) for x in stocks if x]
 
             created_cnt, updated_cnt, skipped_cnt, skipped = 0, 0, 0, []
             for d in dates:
