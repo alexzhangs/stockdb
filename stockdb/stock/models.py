@@ -137,7 +137,6 @@ class Stock(models.Model):
             for mapper_cls in [Market, Subject]: mapper_cls.Mapper.clear()
 
         created_cnt, updated_cnt = 0, 0
-        skipped = []
 
         for status in ['D','L','P']:
             print('%s: Stock: looping status %s' % (datetime.now(), status))
@@ -317,7 +316,7 @@ class StockPeriod(models.Model):
                     sp_df = sp_api.call(**sp_api_kwargs)
 
                     # add new column to df
-                    sp_df['market'] = [Stock.Mapper.tushare_code_to_market.get(x) for x in sp_df.ts_code]
+                    sp_df.insert(loc=0, column='market', value=sp_df.ts_code.apply(Stock.Mapper.tushare_code_to_market.get))
 
                     result[tc_row['cal_date']] = sp_df.groupby('market')['ts_code'].apply(list).to_dict()
                 cls._api_daily_trade_date_to_market_to_ts_code = result
@@ -372,7 +371,7 @@ class StockPeriod(models.Model):
             return clear_date(datetime.today())
 
         def get_dates(market, start_date, end_date):
-            if start_date == end_date:
+            if start_date and start_date == end_date:
                 results = [start_date]
             else:
                 api = TushareApi.objects.get(code='trade_cal')
@@ -387,13 +386,13 @@ class StockPeriod(models.Model):
                     is_open=1)
                 results = df['cal_date'].to_list()
 
-            results = [x for x in results if x]
             return results
 
         def save_sp(market, trade_date, df, create=True, update=False):
             PERIOD = 'DAILY'
             print('%s: %s: save StockPeriod with args: %s' % (datetime.now(), PERIOD, locals()))
 
+            created, updated, skipped = [], [], []
             # add column market_id to df
             df.insert(loc=0, column='market_id', value=df.ts_code.apply(Stock.Mapper.tushare_code_to_market.get))
 
@@ -419,9 +418,6 @@ class StockPeriod(models.Model):
             # remove unused columns
             df.drop(['ts_code'], axis=1, inplace=True)
 
-            skipped = []
-
-            created = []
             if create:
                 # filter df rows for creating
                 cdf = df[df.pk.isnull()].copy()
@@ -435,7 +431,6 @@ class StockPeriod(models.Model):
                         [cls(**d) for d in cleaned_cdf.to_dict('records')],
                         batch_size=5000)
 
-            updated = []
             if update:
                 # filter df rows for updating
                 udf = df[~df.pk.isnull()]
