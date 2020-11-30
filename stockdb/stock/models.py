@@ -13,6 +13,24 @@ from market.models import Market, Subject
 from tusharepro.models import Api as TushareApi
 
 
+def date_to_str(d):
+    if isinstance(d, (str, type(None))):
+        return d
+    if isinstance(d, (date, datetime)):
+        return date.strftime(d, '%Y%m%d')
+    else:
+        raise TypeError('requires `%s`, but received a `%s`.' % ((date, datetime), type(d)))
+
+def str_to_date(d):
+    if isinstance(d, str):
+        return datetime.strptime(d, '%Y%m%d').date()
+    if isinstance(d, datetime):
+        return d.date()
+    if isinstance(d, (date, type(None))):
+        return d
+    else:
+        raise TypeError('requires `%s` in format `%%Y%%m%%d`, but received a `%s`.' % (str, type(d)))
+
 def clean_empty(d):
     if not isinstance(d, (dict, list)):
         return d
@@ -250,7 +268,7 @@ class StockPeriod(models.Model):
                 cls._period_and_market_to_dates = defaultdict(list)
                 objs = StockPeriod.objects.values('date', pm=Concat('period', Value('-'), 'market')).distinct().order_by('date')
                 for obj in objs:
-                    cls._period_and_market_to_dates[obj['pm']].append(obj['date'].strftime('%Y%m%d'))
+                    cls._period_and_market_to_dates[obj['pm']].append(date_to_str(obj['date']))
             return cls._period_and_market_to_dates
 
         @classproperty
@@ -271,7 +289,7 @@ class StockPeriod(models.Model):
                 objs = StockPeriod.objects.filter(period_id=PERIOD, stock__tushare_code__isnull=False).values('date', 'stock__tushare_code', 'pk')
                 result = defaultdict(dict)
                 for obj in objs:
-                    result[obj['date'].strftime('%Y%m%d')][obj['stock__tushare_code']] = obj['pk']
+                    result[date_to_str(obj['date'])][obj['stock__tushare_code']] = obj['pk']
                 cls._daily_date_to_stock_tushare_code_to_pk = result
             return cls._daily_date_to_stock_tushare_code_to_pk
 
@@ -293,7 +311,7 @@ class StockPeriod(models.Model):
                 objs = StockPeriod.objects.filter(period_id=PERIOD, stock__tushare_code__isnull=False).values('date', 'stock__market_id', 'stock__tushare_code')
                 result = defaultdict(lambda: defaultdict(list))
                 for obj in objs:
-                    result[obj['date'].strftime('%Y%m%d')][obj['stock__market_id']].append(obj['stock__tushare_code'])
+                    result[date_to_str(obj['date'])][obj['stock__market_id']].append(obj['stock__tushare_code'])
                 cls._daily_date_to_market_to_stock_tushare_code = result
             return cls._daily_date_to_market_to_stock_tushare_code
 
@@ -320,7 +338,7 @@ class StockPeriod(models.Model):
                 sp_api_kwargs = dict(fields='ts_code')
 
                 # Call trade calendar API
-                tc_df = tc_api.call(fields='cal_date', end_date=datetime.today().strftime('%Y%m%d'), is_open=1)
+                tc_df = tc_api.call(fields='cal_date', end_date=date_to_str(datetime.today()), is_open=1)
 
                 result = {}
                 for tc_index, tc_row in tc_df.iterrows():
@@ -362,15 +380,6 @@ class StockPeriod(models.Model):
         print('%s: %s: sync started with args: %s' % (datetime.now(), PERIOD, locals()))
 
         ## Inner Functions
-        def clear_date(d):
-            if isinstance(d, str):
-                return d
-            if isinstance(d, (date, datetime)):
-                return date.strftime(d, '%Y%m%d')
-            else:
-                raise TypeError('requires one of `%s` or `%s` in format `%%Y%%m%%d`, but received a `%s`.' %
-                                ((date, datetime), str, type(d)))
-
         def get_start_date(market, stocks=[]):
             if stocks:
                 try:
@@ -380,10 +389,10 @@ class StockPeriod(models.Model):
             else:
                 d = (cls.Mapper.period_and_market_to_dates.get('-'.join([PERIOD, market])) or [None])[-1]
 
-            return clear_date(d) if d is not None else d
+            return date_to_str(d) if d is not None else d
 
         def get_end_date():
-            return clear_date(datetime.today())
+            return date_to_str(datetime.today())
 
         def get_dates(market, start_date, end_date):
             if start_date and start_date == end_date:
@@ -427,7 +436,7 @@ class StockPeriod(models.Model):
                       inplace=True)
 
             # update column date in df
-            df.loc[:, 'date'] = datetime.strptime(trade_date, '%Y%m%d').date()
+            df.loc[:, 'date'] = str_to_date(trade_date)
 
             # add columns to df
             df.insert(loc=1, column='stock_id', value=df.ts_code.apply(Stock.Mapper.tushare_code_to_code.get))
@@ -490,14 +499,13 @@ class StockPeriod(models.Model):
                         skipped.extend(m)
 
             return created_cnt, updated_cnt, skipped
-
         ## Inner Functions End
 
         ## Parameters
         if isinstance(dates, (list, tuple, set)):
-            dates = [clear_date(x) for x in dates if x is not None]
+            dates = [date_to_str(x) for x in dates if x is not None]
         else:
-            dates = [clear_date(dates)] if dates is not None else []
+            dates = [date_to_str(dates)] if dates is not None else []
 
         if isinstance(stocks, (list, tuple, set)):
             stocks = [x for x in stocks if x is not None]
@@ -512,8 +520,8 @@ class StockPeriod(models.Model):
             for mapper_cls in [cls, Market, Stock]: mapper_cls.Mapper.clear()
 
         if not dates:
-            start_date = clear_date(start_date) if start_date else get_start_date(market, stocks)
-            end_date = clear_date(end_date) if end_date else get_end_date()
+            start_date = date_to_str(start_date) if start_date else get_start_date(market, stocks)
+            end_date = date_to_str(end_date) if end_date else get_end_date()
             dates = get_dates(market, start_date, end_date)
 
         created_cnt, updated_cnt, skipped = sync(market, dates, stocks)
@@ -596,7 +604,7 @@ class StockPeriod(models.Model):
             print('%s: %s: checksum removing the extra local data' % (datetime.now(), PERIOD))
             for dt, val in locals()['local_extra_by_date'].items():
                 for m, codes in val.items():
-                    cls.objects.filter(period=PERIOD, date=datetime.strptime(dt, '%Y%m%d').date(), stock__tushare_code__in=codes).delete()
+                    cls.objects.filter(period=PERIOD, date=str_to_date(dt), stock__tushare_code__in=codes).delete()
 
         print('%s: %s: checksum ended' % (datetime.now(), PERIOD))
 
