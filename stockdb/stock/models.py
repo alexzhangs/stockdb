@@ -408,6 +408,9 @@ class StockPeriod(models.Model):
             print('%s: %s: save StockPeriod with args: %s' % (datetime.now(), PERIOD, locals()))
 
             created, updated, skipped = [], [], []
+            if len(df) == 0:
+                return len(created), len(updated), skipped
+
             # add column market_id to df
             df.insert(loc=0, column='market_id', value=df.ts_code.apply(Stock.Mapper.tushare_code_to_market.get))
 
