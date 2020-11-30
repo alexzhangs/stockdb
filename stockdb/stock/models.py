@@ -3,6 +3,7 @@ import pandas
 from django.db import models
 from django.db.models import Value
 from django.db.models.functions import Concat
+from django.utils import timezone
 from django.utils.functional import classproperty
 from datetime import datetime, date
 from collections import defaultdict
@@ -74,6 +75,7 @@ class Stock(models.Model):
         _code_to_tushare_code = None
         _code_to_market = None
         _tushare_code_to_market = None
+        _code_to_pk = None
 
         @classmethod
         def clear(cls):
@@ -81,6 +83,7 @@ class Stock(models.Model):
             cls._code_to_tushare_code = None
             cls._code_to_market = None
             cls._tushare_code_to_market = None
+            cls._code_to_pk = None
 
         @classproperty
         def tushare_code_to_code(cls):
@@ -142,6 +145,21 @@ class Stock(models.Model):
                 cls._tushare_code_to_market = {obj.tushare_code: obj.market_id for obj in objs}
             return cls._tushare_code_to_market
 
+        @classproperty
+        def code_to_pk(cls):
+            '''
+            RETURN:
+                {
+                    {code}: {pk},
+                    ...
+                }
+            '''
+
+            if not cls._code_to_pk:
+                objs = Stock.objects.all()
+                cls._code_to_pk = {obj.code: obj.pk for obj in objs}
+            return cls._code_to_pk
+
     def __str__(self):
         return '%s (%s)' % (self.name, self.code)
 
@@ -154,59 +172,101 @@ class Stock(models.Model):
             * clear_mapper: [True|False] Clear used mappers before sync if set True.
         '''
 
-        print('%s: Stock: sync started with args: %s' % (datetime.now(), locals()))
+        print('%s: %s: started with args: %s' % (datetime.now(), cls.sync_from_tushare.__name__, locals()))
+
+        ## Inner Functions
+        def save(df, create=True, update=True):
+            print('%s: %s: started with args: %s' % (datetime.now(), save.__name__, locals()))
+
+            created, updated, skipped = [], [], []
+            if len(df) == 0:
+                return created, updated, skipped
+
+            # add columns to df
+            df.insert(loc=3, column='market_id', value=df.exchange.apply(Market.Mapper.acronym_to_code.get))
+            df.insert(loc=4, column='subject_id', value=df.apply(
+                lambda row: Subject.Mapper.tushare_exchange_and_market_to_code.get(
+                    '-'.join([row.exchange, row.market])) if row.market else None, axis=1))
+            df.insert(loc=6, column='is_listed', value=[True if x in ['L', 'P'] else False for x in df.list_status])
+            df.insert(loc=0, column='code', value=df.market_id + df.symbol)
+            df.insert(loc=0, column='pk', value=df.code.apply(Stock.Mapper.code_to_pk.get))
+
+            # update columns in df
+            df.loc[:, 'list_date'] = df.list_date.apply(str_to_date)
+            df.loc[:, 'delist_date'] = df.delist_date.apply(str_to_date)
+
+            # rename columns name to map to DB model
+            df.rename(columns={'symbol': 'native_code', 'ts_code': 'tushare_code', 'list_status': 'status',
+                               'list_date': 'dt_listed', 'delist_date': 'dt_delisted'},
+                      inplace=True)
+
+            # remove unused columns
+            df.drop(['exchange', 'market'], axis=1, inplace=True)
+
+            clean_cols = ['code', 'native_code', 'tushare_code', 'name', 'market_id']
+            if create:
+                # filter df rows for creating
+                cdf = df[df.pk.isnull()].copy()
+                if len(cdf):
+                    cdf.drop(['pk'], axis=1, inplace=True)
+                    cleaned_cdf = cdf[~cdf[clean_cols].isna().all(1)]
+                    skipped.extend(cdf[~cdf.index.isin(cleaned_cdf.index)].to_dict('records'))
+
+                    # bulk create
+                    created = cls.objects.bulk_create(
+                        [cls(**d) for d in cleaned_cdf.to_dict('records')],
+                        batch_size=5000)
+
+            if update:
+                # filter df rows for updating
+                udf = df[~df.pk.isnull()]
+                if len(udf):
+                    cleaned_udf = udf[~udf[clean_cols].isna().all(1)]
+                    skipped.extend(udf[~udf.index.isin(cleaned_udf.index)].to_dict('records'))
+
+                    # auto_now is not handled by bulk_update(), handle it manually here.
+                    cleaned_udf.insert(loc=11, column='dt_updated', value=timezone.now())
+
+                    objs = [cls(**d) for d in cleaned_udf.to_dict('records')]
+
+                    # bulk update
+                    updated = cls.objects.bulk_update(
+                        objs,
+                        fields=['name', 'status', 'is_listed', 'dt_delisted', 'dt_updated'],
+                        batch_size=5000) or objs # bulk_update() returns nothing
+
+            print('%s: %s: ended, created: %s, updated: %s, skipped: %s'
+                  % (datetime.now(), save.__name__, len(created), len(updated), len(skipped)))
+            return created, updated, skipped
+        ## Inner Functions End
 
         api = TushareApi.objects.get(code='stock_basic')
         api.set_token()
         api_kwargs = dict(
-            fields='ts_code,symbol,name,area,market,exchange,list_status,list_date,delist_date',
+            fields='symbol,ts_code,name,exchange,market,list_status,list_date,delist_date',
             exchange = Market.Mapper.code_to_acronym.get(market) if market else None
         )
 
         # Clear Mappers before sync
         if clear_mapper:
-            for mapper_cls in [Market, Subject]: mapper_cls.Mapper.clear()
+            for mapper_cls in [cls, Market, Subject]: mapper_cls.Mapper.clear()
 
-        created_cnt, updated_cnt = 0, 0
+        created, updated, skipped = [], [], []
 
         for status in ['D','L','P']:
-            print('%s: Stock: looping status %s' % (datetime.now(), status))
-
             api_kwargs['list_status'] = status
 
             # Call stock list API
             df = api.call(**api_kwargs)
 
-            s_created_cnt, s_updated_cnt = 0, 0
-
-            for index, row in df.iterrows():
-                market_code = Market.Mapper.acronym_to_code.get(row['exchange'])
-                code = market_code + row['symbol']
-                subject_code = Subject.Mapper.tushare_exchange_and_market_to_code.get(
-                    '-'.join([row['exchange'], row['market']])) if row['market'] else None
-
-                stock = {
-                    'code': code,
-                    'native_code': row['symbol'],
-                    'tushare_code': row['ts_code'],
-                    'name': row['name'],
-                    'market_id': market_code,
-                    'subject_id': subject_code,
-                    'status': row['list_status'],
-                    'is_listed': True if row['list_status'] in ['L', 'P'] else False,
-                    'dt_listed': datetime.strptime(row['list_date'], '%Y%m%d').date(),
-                    'dt_delisted': datetime.strptime(row['delist_date'], '%Y%m%d').date() if row['delist_date'] else None
-                }
-                obj, created = cls.objects.update_or_create(code=code, defaults=stock)
-                s_created_cnt += int(created)
-                s_updated_cnt += int(not(created))
-
-            print('%s: Stock: looping status %s, ended, created: %s, updated, %s' % (datetime.now(), status, s_created_cnt, s_updated_cnt))
-            created_cnt += s_created_cnt
-            updated_cnt += s_updated_cnt
-
-        print('%s: Stock: sync ended, created: %s, updated: %s' % (datetime.now(), created_cnt, updated_cnt))
-
+            if len(df):
+                c, u, s = save(df)
+                created.extend(c)
+                updated.extend(u)
+                skipped.extend(s)
+        print('%s: %s ended, created: %s, updated: %s, skipped: %s' % (
+            datetime.now(), cls.sync_from_tushare.__name__, len(created), len(updated), len(skipped)))
+        return created, updated, skipped
 
 class StockHist(models.Model):
     stock = models.ForeignKey(Stock, to_field='code', on_delete=models.DO_NOTHING, related_name='changes')
