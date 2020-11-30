@@ -330,6 +330,8 @@ class StockPeriod(models.Model):
 
                     # add new column to df
                     sp_df.insert(loc=0, column='market', value=sp_df.ts_code.apply(Stock.Mapper.tushare_code_to_market.get))
+                    # drop rows with empty ts_code or market
+                    sp_df.dropna()
 
                     result[tc_row['cal_date']] = sp_df.groupby('market')['ts_code'].apply(list).to_dict()
                 cls._api_daily_trade_date_to_market_to_ts_code = result
