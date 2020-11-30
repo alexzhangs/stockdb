@@ -13,6 +13,19 @@ from market.models import Market, Subject
 from tusharepro.models import Api as TushareApi
 
 
+def clean_empty(d):
+    if not isinstance(d, (dict, list)):
+        return d
+    if isinstance(d, list):
+        return [v for v in (clean_empty(v) for v in d) if v]
+    return {k: v for k, v in ((k, clean_empty(v)) for k, v in d.items()) if v}
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
+
 # Create your models here.
 
 # refer to:
@@ -447,30 +460,31 @@ class StockPeriod(models.Model):
             print('%s: %s: save StockPeriod ended, created: %s, updated: %s, skipped: %s'
                   % (datetime.now(), PERIOD, len(created), len(updated), len(skipped)))
 
-            return len(created), len(updated), len(skipped), skipped
+            return len(created), len(updated), skipped
 
         def sync(market, dates, stocks=[]):
             api = TushareApi.objects.get(code=PERIOD.lower())
             api.set_token()
             api_kwargs = dict(fields='ts_code,trade_date,open,high,low,close,pre_close,change,pct_chg,vol,amount')
             if stocks:
-                api_kwargs['ts_code'] = ','.join(stocks)
                 stocks = [Stock.Mapper.code_to_tushare_code.get(x) for x in stocks if x]
 
-            created_cnt, updated_cnt, skipped_cnt, skipped = 0, 0, 0, []
+            created_cnt, updated_cnt, skipped = 0, 0, []
             for d in dates:
                 api_kwargs['trade_date'] = d
 
-                # Call daily trade data API
-                df = api.call(**api_kwargs)
+                for chunked_stocks in chunks(stocks, 100):
+                    api_kwargs['ts_code'] = ','.join(clean_empty(chunked_stocks))
+                    # Call daily trade data API
+                    df = api.call(**api_kwargs)
 
-                i, j, k, m = save_sp(market, d, df)
-                created_cnt += i
-                updated_cnt += j
-                skipped_cnt += k
-                skipped.extend(m)
+                    if len(df):
+                        i, j, m = save_sp(market, d, df)
+                        created_cnt += i
+                        updated_cnt += j
+                        skipped.extend(m)
 
-            return created_cnt, updated_cnt, skipped_cnt, skipped
+            return created_cnt, updated_cnt, skipped
 
         ## Inner Functions End
 
@@ -497,10 +511,12 @@ class StockPeriod(models.Model):
             end_date = clear_date(end_date) if end_date else get_end_date()
             dates = get_dates(market, start_date, end_date)
 
-        created_cnt, updated_cnt, skipped_cnt, skipped = sync(market, dates, stocks)
+        created_cnt, updated_cnt, skipped = sync(market, dates, stocks)
 
         print('%s: %s: sync ended, created: %s, updated: %s, skipped: %s %s'
               % (datetime.now(), PERIOD, created_cnt, updated_cnt, len(skipped), skipped))
+
+        return created_cnt, updated_cnt, skipped
 
     @classmethod
     def checksum_daily_from_tushare(cls, sync=False, remove=False, clear_mapper=True):
