@@ -528,7 +528,6 @@ class StockPeriod(models.Model):
         '''
 
         PERIOD = 'DAILY'
-        MARKETS = ['XSHG', 'XSHE']
 
         print('%s: %s: checksum started with args: %s' % (datetime.now(), PERIOD, locals()))
 
@@ -539,18 +538,12 @@ class StockPeriod(models.Model):
         ## 1. Check remote data
         print('%s: %s: checksum getting remote data' % (datetime.now(), PERIOD))
 
-        remote_by_date = cls.Mapper.api_daily_trade_date_to_ts_code
+        remote_by_date = cls.Mapper.api_daily_trade_date_to_market_to_ts_code
 
         ## 2. Check local data
         print('%s: %s: checksum getting local data' % (datetime.now(), PERIOD))
 
-        objs = StockPeriod.objects.filter(period_id=PERIOD, market_id__in=MARKETS, stock__tushare_code__isnull=False).annotate(
-            date_str=models.Func(
-                models.F('date'), models.Value('%Y%m%d'), function='DATE_FORMAT', output_field=models.CharField()
-            )).values_list('date_str', 'stock__tushare_code')
-        sp_df = pandas.DataFrame.from_records(objs, columns=['trade_date', 'ts_code'])
-
-        local_by_date = sp_df.groupby('trade_date')['ts_code'].apply(list).to_dict()
+        local_by_date = cls.Mapper.daily_date_to_market_to_stock_tushare_code
 
         ## 3. Calculate delta between remote and local data
         print('%s: %s: checksum calculating delta between remote and local data' % (datetime.now(), PERIOD))
@@ -560,8 +553,10 @@ class StockPeriod(models.Model):
             ('local_extra_by_date', 'remote_by_date', 'local_by_date'),
         ]:
             v1, v2 = locals()[v1], locals()[v2]
-            locals()[vt] = {k: list(set(v or []) - set(v1.get(k) or [])) for k, v in v2.items()}
-            locals()[vt] = {k: v for k, v in locals()[vt].items() if v}
+            locals()[vt] = {
+                dt: {m: list(set(codes) - set((v1.get(dt) or {}).get(m) or [])) for m, codes in val.items() if codes}
+                for dt, val in v2.items() if val}
+            locals()[vt] = clean_empty(locals()[vt])
 
         ## 4. Output checksum results
         for name, vr in [
@@ -569,27 +564,34 @@ class StockPeriod(models.Model):
             ('extra', 'local_extra_by_date'),
         ]:
             vr = locals()[vr]
-            print('%s: %s: checksum result: %s data (%s): %s' % (
-                datetime.now(), PERIOD, name, len(vr.keys()), ','.join(['%s (%s)' % (k, len(vr[k])) for k, v in vr.items()])))
+            print('%s: %s: checksum result: %s data (%s): %s' % (datetime.now(), PERIOD, name, len(vr.keys()), vr))
 
         ## 5. Sync the missing local data
         if sync:
             print('%s: %s: checksum syncing the missing local data' % (datetime.now(), PERIOD))
-            for k, v in locals()['local_missing_by_date'].items():
-                stocks = [Stock.Mapper.tushare_code_to_code.get(ts_code) for ts_code in v]
-                stocks = [x for x in stocks if x is not None]
-                cls.sync_daily_from_tushare(
-                    start_date=k,
-                    end_date=k,
-                    stock_codes=stocks,
-                    clear_mapper=False
-                )
+            created_cnt, updated_cnt, skipped = 0, 0, []
+            for dt, val in locals()['local_missing_by_date'].items():
+                for m, codes in val.items():
+                    stocks = [Stock.Mapper.tushare_code_to_code.get(ts_code) for ts_code in codes]
+                    i, j, m = cls.sync_daily_from_tushare(
+                        market=m,
+                        dates=dt,
+                        stocks=clean_empty(stocks),
+                        clear_mapper=False
+                    )
+                    created_cnt += i
+                    updated_cnt += j
+                    skipped.extend(m)
+
+            print('%s: %s: checksum sync ended, created: %s, updated: %s, skipped: %s %s'
+                  % (datetime.now(), PERIOD, created_cnt, updated_cnt, len(skipped), skipped))
 
         ## 6. Remove the extra local data
         if remove:
             print('%s: %s: checksum removing the extra local data' % (datetime.now(), PERIOD))
-            for k, v in locals()['local_extra_by_date'].items():
-                cls.objects.filter(period=PERIOD, date=datetime.strptime(k, '%Y%m%d'), stock__tushare_code__in=v).delete()
+            for dt, val in locals()['local_extra_by_date'].items():
+                for m, codes in val.items():
+                    cls.objects.filter(period=PERIOD, date=datetime.strptime(dt, '%Y%m%d').date(), stock__tushare_code__in=codes).delete()
 
         print('%s: %s: checksum ended' % (datetime.now(), PERIOD))
 
