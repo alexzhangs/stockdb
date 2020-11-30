@@ -472,7 +472,7 @@ class StockPeriod(models.Model):
 
             return results
 
-        def save_sp(market, trade_date, df, create=True, update=False):
+        def save(market, trade_date, df, create=True, update=False):
             PERIOD = 'DAILY'
             print('%s: %s: save StockPeriod with args: %s' % (datetime.now(), PERIOD, locals()))
 
@@ -525,11 +525,16 @@ class StockPeriod(models.Model):
                     cleaned_udf = udf.dropna()
                     skipped.extend(udf[~udf.index.isin(cleaned_udf.index)].to_dict('records'))
 
+                    # auto_now is not handled by bulk_update(), handle it manually here.
+                    cleaned_udf.insert(loc=11, column='dt_updated', value=timezone.now())
+
+                    objs = [cls(**d) for d in cleaned_udf.to_dict('records')]
+
                     # bulk update
                     updated = cls.objects.bulk_update(
-                        [cls(**d) for d in udf.to_dict('records')],
-                        ['pre_close', 'open', 'close', 'high', 'low', 'change', 'percent', 'volume', 'amount'],
-                        batch_size=5000)
+                        objs,
+                        fields=['pre_close', 'open', 'close', 'high', 'low', 'change', 'percent', 'volume', 'amount'],
+                        batch_size=5000) or objs # bulk_update() returns nothing
 
             print('%s: %s: save StockPeriod ended, created: %s, updated: %s, skipped: %s'
                   % (datetime.now(), PERIOD, len(created), len(updated), len(skipped)))
@@ -553,7 +558,7 @@ class StockPeriod(models.Model):
                     df = api.call(**api_kwargs)
 
                     if len(df):
-                        i, j, m = save_sp(market, d, df)
+                        i, j, m = save(market, d, df)
                         created_cnt += i
                         updated_cnt += j
                         skipped.extend(m)
