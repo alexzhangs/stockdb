@@ -1,4 +1,3 @@
-import time
 import pandas
 from django.db import models
 from django.db.models import Value
@@ -7,7 +6,7 @@ from django.utils import timezone
 from datetime import datetime, date
 from collections import defaultdict
 
-from utils.functional import cached_classproperty, clean_empty, chunks
+from utils.functional import BaseMapper, cached_classproperty, clean_empty, chunks
 from common.models import Currency, Region, Industry, Period
 from firm.models import Firm
 from market.models import Market, Subject
@@ -57,11 +56,7 @@ class Stock(models.Model):
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
-    class Mapper:
-
-        @classmethod
-        def clear(cls):
-            pass
+    class Mapper(BaseMapper):
 
         @cached_classproperty
         def tushare_code_to_code(cls):
@@ -269,11 +264,7 @@ class StockPeriod(models.Model):
     class Meta:
         unique_together = ('stock', 'period', 'date')
 
-    class Mapper:
-
-        @classmethod
-        def clear(cls):
-            pass
+    class Mapper(BaseMapper):
 
         @cached_classproperty
         def period_and_market_to_dates(cls):

@@ -4,6 +4,14 @@ from django.utils.functional import classproperty
 
 # Create your models here.
 
+class BaseMapper:
+
+    @classmethod
+    def clear(cls):
+        for name in [k for k, v in cls.__dict__.items() if type(v) is cached_classproperty]:
+            cache.delete(name)
+
+
 class cached_classproperty(classproperty):
     """
     Decorator that converts a method with a single cls argument into a

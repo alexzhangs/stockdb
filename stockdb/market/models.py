@@ -1,5 +1,5 @@
 from django.db import models
-from utils.functional import cached_classproperty
+from utils.functional import BaseMapper, cached_classproperty
 
 from common.models import Currency, Region
 
@@ -21,11 +21,7 @@ class Market(models.Model):
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
-    class Mapper:
-
-        @classmethod
-        def clear(cls):
-            pass
+    class Mapper(BaseMapper):
 
         @cached_classproperty
         def acronym_to_code(cls):
@@ -80,11 +76,7 @@ class Subject(models.Model):
     dt_created = models.DateTimeField('Created', auto_now_add=True)
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
-    class Mapper:
-
-        @classmethod
-        def clear(cls):
-            pass
+    class Mapper(BaseMapper):
 
         @cached_classproperty
         def tushare_exchange_and_market_to_code(cls):
