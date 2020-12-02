@@ -1,5 +1,5 @@
 from django.db import models
-from django.utils.functional import classproperty
+from utils.functional import cached_classproperty
 
 from common.models import Currency, Region
 
@@ -22,15 +22,12 @@ class Market(models.Model):
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
     class Mapper:
-        _acronym_to_code = None
-        _code_to_acronym = None
 
         @classmethod
         def clear(cls):
-            cls._acronym_to_code = None
-            cls._code_to_acronym = None
+            pass
 
-        @classproperty
+        @cached_classproperty
         def acronym_to_code(cls):
             '''
             RETURN:
@@ -40,12 +37,10 @@ class Market(models.Model):
                 }
             '''
 
-            if not cls._acronym_to_code:
-                objs = Market.objects.filter(acronym__isnull=False)
-                cls._acronym_to_code = dict((obj.acronym, obj.code) for obj in objs)
-            return cls._acronym_to_code
+            objs = Market.objects.filter(acronym__isnull=False)
+            return {obj.acronym: obj.code for obj in objs}
 
-        @classproperty
+        @cached_classproperty
         def code_to_acronym(cls):
             '''
             RETURN:
@@ -55,10 +50,8 @@ class Market(models.Model):
                 }
             '''
 
-            if not cls._code_to_acronym:
-                objs = Market.objects.filter(acronym__isnull=False)
-                cls._code_to_acronym = dict((obj.code, obj.acronym) for obj in objs)
-            return cls._code_to_acronym
+            objs = Market.objects.filter(acronym__isnull=False)
+            return {obj.code: obj.acronym for obj in objs}
 
     def __str__(self):
         return '%s(%s)' % (self.name, self.code)
@@ -88,13 +81,12 @@ class Subject(models.Model):
     dt_updated = models.DateTimeField('Updated', auto_now=True)
 
     class Mapper:
-        _tushare_market_to_code = None
 
         @classmethod
         def clear(cls):
-            cls._tushare_market_to_code = None
+            pass
 
-        @classproperty
+        @cached_classproperty
         def tushare_exchange_and_market_to_code(cls):
             '''
             RETURN:
@@ -104,12 +96,8 @@ class Subject(models.Model):
                 }
             '''
 
-            if not cls._tushare_market_to_code:
-                objs = Subject.objects.filter(name__isnull=False)
-                cls._tushare_market_to_code = dict((
-                    '-'.join([obj.market.acronym, obj.name.split('-')[0]]),
-                    obj.code) for obj in objs)
-            return cls._tushare_market_to_code
+            objs = Subject.objects.filter(name__isnull=False)
+            return {'-'.join([obj.market.acronym, obj.name.split('-')[0]]): obj.code for obj in objs}
 
     def __str__(self):
         return '%s (%s)' % (self.name, self.code)
