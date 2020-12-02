@@ -26,6 +26,14 @@ class cached_classproperty(classproperty):
         self.__doc__ = getattr(func, '__doc__')
 
     def __get__(self, instance, cls):
+        """
+        Note: If the caching value is greater than the maximum item size that caches allowed,
+              it will just return the value without error and warning.
+              For memcached, use following options to set the limitation.
+                -m, --memory-limit=<num>  item memory in megabytes (default: 64)
+                -I, --max-item-size=<num> adjusts max item size
+                                            (default: 1m, min: 1k, max: 1024m)
+        """
         return cache.get_or_set(self.func.__name__, lambda: self.func(cls), self.timeout)
 
 
