@@ -485,19 +485,20 @@ class StockPeriod(models.Model):
 
             return len(created), len(updated), skipped
 
-        def sync(market, dates, stocks=[]):
+        def sync(market, dates, stocks=None):
             api = TushareApi.objects.get(code=PERIOD.lower())
             api.set_token()
             api_kwargs = dict(fields='ts_code,trade_date,open,high,low,close,pre_close,change,pct_chg,vol,amount')
             if stocks:
-                stocks = [Stock.Mapper.code_to_tushare_code.get(x) for x in stocks if x]
+                stocks = clean_empty([Stock.Mapper.code_to_tushare_code.get(x) for x in stocks if x])
+                stocks = [','.join(chunk) for chunk in chunks(stocks, 100)]
 
             created_cnt, updated_cnt, skipped = 0, 0, []
             for d in dates:
                 api_kwargs['trade_date'] = d
 
-                for chunked_stocks in chunks(stocks, 100):
-                    api_kwargs['ts_code'] = ','.join(clean_empty(chunked_stocks))
+                for stock in stocks or [None]:
+                    api_kwargs['ts_code'] = stock
                     # Call daily trade data API
                     df = api.call(**api_kwargs)
 
