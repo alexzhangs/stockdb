@@ -60,81 +60,75 @@ class Stock(models.Model):
 
         @cached_classproperty
         def tushare_code_to_code(cls):
-            '''
+            """
             RETURN:
                 {
                     {tushare_code}: {code},
                     ...
                 }
-            '''
-
-            objs = Stock.objects.filter(tushare_code__isnull=False)
-            return {obj.tushare_code: obj.code for obj in objs}
+            """
+            objs = Stock.objects.filter(tushare_code__isnull=False).values('code', 'tushare_code')
+            return {obj['tushare_code']: obj['code'] for obj in objs}
 
         @cached_classproperty
         def code_to_tushare_code(cls):
-            '''
+            """
             RETURN:
                 {
                     {code}: {tushare_code},
                     ...
                 }
-            '''
-
-            objs = Stock.objects.filter(tushare_code__isnull=False)
-            return {obj.code: obj.tushare_code for obj in objs}
+            """
+            objs = Stock.objects.filter(tushare_code__isnull=False).values('code', 'tushare_code')
+            return {obj['code']: obj['tushare_code'] for obj in objs}
 
         @cached_classproperty
         def code_to_market(cls):
-            '''
+            """
             RETURN:
                 {
                     {code}: {market_code},
                     ...
                 }
-            '''
-
-            objs = Stock.objects.all()
-            return {obj.code: obj.market_id for obj in objs}
+            """
+            objs = Stock.objects.values('code', 'market_id')
+            return {obj['code']: obj['market_id'] for obj in objs}
 
         @cached_classproperty
         def tushare_code_to_market(cls):
-            '''
+            """
             RETURN:
                 {
                     {tushare_code}: {market_code},
                     ...
                 }
-            '''
-
-            objs = Stock.objects.filter(tushare_code__isnull=False)
-            return {obj.tushare_code: obj.market_id for obj in objs}
+            """
+            objs = Stock.objects.filter(tushare_code__isnull=False).values('tushare_code', 'market_id')
+            return {obj['tushare_code']: obj['market_id'] for obj in objs}
 
         @cached_classproperty
         def code_to_pk(cls):
-            '''
+            """
             RETURN:
                 {
                     {code}: {pk},
                     ...
                 }
-            '''
-
-            objs = Stock.objects.all()
-            return {obj.code: obj.pk for obj in objs}
+            """
+            objs = Stock.objects.values('code', 'pk')
+            return {obj['code']: obj['pk'] for obj in objs}
 
     def __str__(self):
         return '%s (%s)' % (self.name, self.code)
 
     @classmethod
     def sync_from_tushare(cls, market=None, clear_mapper=True):
-        '''
+        """
         PARAMS:
             * market:       Sync the market only.
                             If None, sync all: XSHG, XSHE for now.
             * clear_mapper: [True|False] Clear used mappers before sync if set True.
-        '''
-
+        """
         print('%s: %s: started with args: %s' % (datetime.now(), cls.sync_from_tushare.__name__, locals()))
 
         ## Inner Functions
@@ -304,7 +298,7 @@ class StockPeriod(models.Model):
 
         @cached_classproperty
         def daily_date_to_market_to_stock_tushare_code(cls):
-            '''
+            """
             RETURN:
                 {
                     {date}.strftime('%Y%m%d'): {
@@ -313,8 +307,7 @@ class StockPeriod(models.Model):
                     },
                     ...
                 }
-            '''
-
+            """
             PERIOD = 'DAILY'
             result = defaultdict(lambda: defaultdict(list))
             objs = StockPeriod.objects.filter(period_id=PERIOD, stock__tushare_code__isnull=False).values('date', 'stock__market_id', 'stock__tushare_code')
@@ -324,7 +317,7 @@ class StockPeriod(models.Model):
 
         @cached_classproperty
         def api_daily_trade_date_to_market_to_ts_code(cls):
-            '''
+            """
             RETURN:
                 {
                     {trade_date}: {
@@ -362,7 +355,7 @@ class StockPeriod(models.Model):
 
     @classmethod
     def sync_daily_from_tushare(cls, market, dates=None, start_date=None, end_date=None, stocks=None, clear_mapper=True):
-        '''
+        """
         PARAMS:
             * market:       The market to sync, example: 'XSHG'.
             * dates:        Sync for the dates, example: '19991231' or ['19991230', '19991231'].
@@ -377,8 +370,7 @@ class StockPeriod(models.Model):
             * clear_mapper: [True|False] Clear used mappers before to sync if set True.
         TODO:
             * trade date timezone
-        '''
-
+        """
         PERIOD = 'DAILY'
 
         print('%s: %s: sync started with args: %s' % (datetime.now(), PERIOD, locals()))
@@ -543,13 +535,12 @@ class StockPeriod(models.Model):
 
     @classmethod
     def checksum_daily_from_tushare(cls, sync=False, remove=False, clear_mapper=True):
-        '''
+        """
         PARAMS:
             * sync:         [True|False] Sync the missing local data if set True.
             * remove:       [True|False] Remove the extra local data if set True.
             * clear_mapper: [True|False] Clear used mappers before sync if set True.
-        '''
-
+        """
         PERIOD = 'DAILY'
 
         print('%s: %s: checksum started with args: %s' % (datetime.now(), PERIOD, locals()))

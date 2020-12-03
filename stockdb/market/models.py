@@ -25,27 +25,25 @@ class Market(models.Model):
 
         @cached_classproperty
         def acronym_to_code(cls):
-            '''
+            """
             RETURN:
                 {
                     {acronym}: {code},
                     ...
                 }
-            '''
-
+            """
             objs = Market.objects.filter(acronym__isnull=False)
             return {obj.acronym: obj.code for obj in objs}
 
         @cached_classproperty
         def code_to_acronym(cls):
-            '''
+            """
             RETURN:
                 {
                     {code}: {acronym},
                     ...
                 }
-            '''
-
+            """
             objs = Market.objects.filter(acronym__isnull=False)
             return {obj.code: obj.acronym for obj in objs}
 
@@ -80,14 +78,13 @@ class Subject(models.Model):
 
         @cached_classproperty
         def tushare_exchange_and_market_to_code(cls):
-            '''
+            """
             RETURN:
                 {
                     {market__acronym} + {subject__name}.split('-')[0]: {code},
                     ...
                 }
-            '''
-
+            """
             objs = Subject.objects.filter(name__isnull=False)
             return {'-'.join([obj.market.acronym, obj.name.split('-')[0]]): obj.code for obj in objs}
 
