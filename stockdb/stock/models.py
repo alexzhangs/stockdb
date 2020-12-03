@@ -261,48 +261,26 @@ class StockPeriod(models.Model):
     class Mapper(BaseMapper):
 
         @cached_classproperty
-        def period_and_market_to_dates(cls):
-            '''
+        def daily_hash_date_and_stock_to_pk(cls):
+            """
             RETURN:
                 {
-                    {period_id}-{market_id}: [{date}.strftime('%Y%m%d'), ...].sort(),
+                    hash({date}.strftime('%Y%m%d') + {stock_id}): {pk},
                     ...
                 }
-            '''
-
-            result = defaultdict(list)
-            objs = StockPeriod.objects.values('date', pm=Concat('period', Value('-'), 'market')).distinct().order_by('date')
-            for obj in objs:
-                result[obj['pm']].append(date_to_str(obj['date']))
-            return result
-
-        @cached_classproperty
-        def daily_date_to_stock_tushare_code_to_pk(cls):
-            '''
-            RETURN:
-                {
-                    {date}.strftime('%Y%m%d'): {
-                        {stock__tushare_code}: {pk},
-                        ...
-                    },
-                    ...
-                }
-            '''
-
+            """
             PERIOD = 'DAILY'
-            result = defaultdict(dict)
-            objs = StockPeriod.objects.filter(period_id=PERIOD, stock__tushare_code__isnull=False).values('date', 'stock__tushare_code', 'pk')
-            for obj in objs:
-                result[date_to_str(obj['date'])][obj['stock__tushare_code']] = obj['pk']
-            return result
+            objs = StockPeriod.objects.filter(
+                period_id=PERIOD).values('date', 'stock_id', 'pk')
+            return {hash(date_to_str(obj['date']) + obj['stock_id']): obj['pk'] for obj in objs}
 
         @cached_classproperty
-        def daily_date_to_market_to_stock_tushare_code(cls):
+        def daily_date_to_market_to_stocks(cls):
             """
             RETURN:
                 {
                     {date}.strftime('%Y%m%d'): {
-                        {market_id}: [{stock__tushare_code}, ...],
+                        {market_id}: [{stock_id}, ...],
                         ...
                     },
                     ...
@@ -310,24 +288,24 @@ class StockPeriod(models.Model):
             """
             PERIOD = 'DAILY'
             result = defaultdict(lambda: defaultdict(list))
-            objs = StockPeriod.objects.filter(period_id=PERIOD, stock__tushare_code__isnull=False).values('date', 'stock__market_id', 'stock__tushare_code')
+            objs = StockPeriod.objects.filter(
+                period_id=PERIOD).values('date', 'stock_id', 'market_id')
             for obj in objs:
-                result[date_to_str(obj['date'])][obj['stock__market_id']].append(obj['stock__tushare_code'])
+                result[date_to_str(obj['date'])][obj['market_id']].append(obj['stock_id'])
             return result
 
         @cached_classproperty
-        def api_daily_trade_date_to_market_to_ts_code(cls):
+        def daily_api_date_to_market_to_stocks(cls):
             """
             RETURN:
                 {
-                    {trade_date}: {
-                        {market}: [{ts_code}, ...],
+                    {date}.strftime('%Y%m%d'): {
+                        {market_id}: [{stock_id}, ...],
                         ...
                     },
                     ...
                 }
-            '''
-
+            """
             PERIOD = 'DAILY'
             tc_api = TushareApi.objects.get(code='trade_cal')
             tc_api.set_token()
@@ -345,12 +323,13 @@ class StockPeriod(models.Model):
                 # Call daily trade data API
                 sp_df = sp_api.call(**sp_api_kwargs)
 
-                # add new column to df
-                sp_df.insert(loc=0, column='market', value=sp_df.ts_code.apply(Stock.Mapper.tushare_code_to_market.get))
-                # drop rows with empty ts_code or market
+                # add new columns to df
+                sp_df.insert(loc=0, column='market_id', value=sp_df.ts_code.apply(Stock.Mapper.tushare_code_to_market.get))
+                sp_df.insert(loc=1, column='stock_id', value=sp_df.ts_code.apply(Stock.Mapper.tushare_code_to_code.get))
+                # drop rows with empty ts_code, market, or stock_id
                 sp_df.dropna()
 
-                result[tc_row['cal_date']] = sp_df.groupby('market')['ts_code'].apply(list).to_dict()
+                result[tc_row['cal_date']] = sp_df.groupby('market_id')['stock_id'].apply(list).to_dict()
             return result
 
     @classmethod
@@ -377,15 +356,13 @@ class StockPeriod(models.Model):
 
         ## Inner Functions
         def get_start_date(market, stocks=[]):
-            if stocks:
-                try:
-                    d = cls.objects.filter(period_id=PERIOD, market_id=market, stock_id__in=stocks).latest('date').date
-                except cls.DoesNotExist:
-                    d = None
-            else:
-                d = (cls.Mapper.period_and_market_to_dates.get('-'.join([PERIOD, market])) or [None])[-1]
-
-            return date_to_str(d) if d is not None else d
+            kwargs={'period_id': PERIOD, 'market_id': market}
+            if stocks: kwargs['stock_id__in'] = stocks
+            try:
+                d = date_to_str(cls.objects.filter(**kwargs).latest('date').date)
+            except cls.DoesNotExist:
+                d = None
+            return d
 
         def get_end_date():
             return date_to_str(datetime.today())
@@ -422,10 +399,14 @@ class StockPeriod(models.Model):
             # filter df rows with appreciated market
             df = df[df.market_id == market].copy()
 
+            # add columns to df
+            df.insert(loc=0, column='stock_id', value=df.ts_code.apply(Stock.Mapper.tushare_code_to_code.get))
+            df.insert(loc=2, column='period_id', value=PERIOD)
+
             # add column pk to df if found one in DB
             df.insert(loc=0, column='pk', value=df.apply(
-                lambda row: StockPeriod.Mapper.daily_date_to_stock_tushare_code_to_pk.get(trade_date, {}).get(
-                    row.ts_code), axis=1))
+                lambda row: StockPeriod.Mapper.daily_hash_date_and_stock_to_pk.get(
+                    hash(trade_date + row.stock_id)), axis=1))
 
             # rename columns name to map to DB model
             df.rename(columns={'trade_date': 'date', 'pct_chg': 'percent', 'vol': 'volume'},
@@ -433,10 +414,6 @@ class StockPeriod(models.Model):
 
             # update column date in df
             df.loc[:, 'date'] = str_to_date(trade_date)
-
-            # add columns to df
-            df.insert(loc=1, column='stock_id', value=df.ts_code.apply(Stock.Mapper.tushare_code_to_code.get))
-            df.insert(loc=3, column='period_id', value=PERIOD)
 
             # remove unused columns
             df.drop(['ts_code'], axis=1, inplace=True)
@@ -552,12 +529,12 @@ class StockPeriod(models.Model):
         ## 1. Check remote data
         print('%s: %s: checksum getting remote data' % (datetime.now(), PERIOD))
 
-        remote_by_date = cls.Mapper.api_daily_trade_date_to_market_to_ts_code
+        remote_by_date = cls.Mapper.daily_api_date_to_market_to_stocks
 
         ## 2. Check local data
         print('%s: %s: checksum getting local data' % (datetime.now(), PERIOD))
 
-        local_by_date = cls.Mapper.daily_date_to_market_to_stock_tushare_code
+        local_by_date = cls.Mapper.daily_date_to_market_to_stocks
 
         ## 3. Calculate delta between remote and local data
         print('%s: %s: checksum calculating delta between remote and local data' % (datetime.now(), PERIOD))

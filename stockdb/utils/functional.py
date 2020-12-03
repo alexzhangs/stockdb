@@ -8,8 +8,12 @@ class BaseMapper:
 
     @classmethod
     def clear(cls):
-        for name in [k for k, v in cls.__dict__.items() if type(v) is cached_classproperty]:
-            cache.delete(name)
+        """
+        Clear the cached_classproperty under the Mapper.
+        """
+        for f in [v for k, v in cls.__dict__.items() if type(v) is cached_classproperty]:
+            if hasattr(cls, f.cache_key):
+                delattr(cls, f.cache_key)
 
 
 class cached_classproperty(classproperty):
@@ -20,24 +24,20 @@ class cached_classproperty(classproperty):
     A cached class property can be made out of an existing method:
     (e.g. ``url = cached_classproperty(get_absolute_url)``).
     """
-    def __init__(self, func, timeout=None):
-        self.func = func
-        self.timeout = timeout
-        self.__doc__ = getattr(func, '__doc__')
+    @property
+    def cache_key(self):
+        return '_' + self.fget.__name__
 
     def __get__(self, instance, cls):
-        """
-        Note: If the caching value is greater than the maximum item size that caches allowed,
-              it will just return the value without error and warning.
-              For memcached, use following options to set the limitation.
-                -m, --memory-limit=<num>  item memory in megabytes (default: 64)
-                -I, --max-item-size=<num> adjusts max item size
-                                            (default: 1m, min: 1k, max: 1024m)
-        """
-        return cache.get_or_set(self.func.__name__, lambda: self.func(cls), self.timeout)
+        if not hasattr(cls, self.cache_key):
+            setattr(cls, self.cache_key, self.fget(cls))
+        return getattr(cls, self.cache_key)
 
 
 def clean_empty(d):
+    """
+    Clean empty node in nested Dict or List.
+    """
     if not isinstance(d, (dict, list)):
         return d
     if isinstance(d, list):
