@@ -1,0 +1,3 @@
+# mysql
+
+CREATE DATABASE `stockdb`;

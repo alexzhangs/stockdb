@@ -134,3 +134,6 @@ stockdb/*/migrations/*
 
 # IDEA
 .idea
+
+# Credentials / sensitive data
+tusharepro_account.sql

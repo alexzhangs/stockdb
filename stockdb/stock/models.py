@@ -500,8 +500,11 @@ class StockPeriod(models.Model):
 
         if not dates:
             start_date = date_to_str(start_date) if start_date else get_start_date(market, stocks)
+            print('using start_date: %s' % start_date)
             end_date = date_to_str(end_date) if end_date else get_end_date()
+            print('using end_date: %s' % end_date)
             dates = get_dates(market, start_date, end_date)
+            print('using dates: %s' % dates)
 
         created_cnt, updated_cnt, skipped = sync(market, dates, stocks)
 
@@ -587,3 +590,22 @@ class StockPeriod(models.Model):
         print('%s: %s: checksum ended' % (datetime.now(), PERIOD))
 
         return (locals()['local_missing_by_date'], locals()['local_extra_by_date'])
+
+
+class StockStat(models.Model):
+    stock = models.ForeignKey(Stock, to_field='code', on_delete=models.DO_NOTHING, related_name='stats')
+    market = models.ForeignKey(Market, to_field='code', on_delete=models.DO_NOTHING, related_name='stockstats')
+    period = models.ForeignKey(Period, to_field='code', on_delete=models.DO_NOTHING)
+    date = models.DateField(db_index=True)
+    n1 = models.DecimalField(max_digits=8, decimal_places=2)
+    n10 = models.DecimalField(max_digits=8, decimal_places=2)
+    p1 = models.DecimalField(max_digits=8, decimal_places=2)
+    p10 = models.DecimalField(max_digits=8, decimal_places=2)
+    dt_created = models.DateTimeField('Created', auto_now_add=True)
+    dt_updated = models.DateTimeField('Updated', auto_now=True)
+
+    class Meta:
+        unique_together = ('stock', 'period', 'date')
+
+    class Mapper(BaseMapper):
+        pass

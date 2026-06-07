@@ -16,8 +16,16 @@ from stock.models import Stock
 #   * https://zh.wikipedia.org/wiki/富時集團
 #   * https://www.ftserussell.com/index
 #   * https://zh.wikipedia.org/wiki/美元指数
+#   * https://zh.wikipedia.org/wiki/貨幣供應量
+#   * http://data.eastmoney.com/cjsj/globalRate.html
+#   * https://www.ceicdata.com/zh-hans/indicator/china/reserve-requirement-ratio
 #   * https://zh.wikipedia.org/wiki/國際證券識別碼
 #   * https://www.marketwatch.com/tools/quotes/lookup.asp
+#   * 
+#   * 
+#   * 
+#   * 
+#   * 
 class Index(models.Model):
     code = models.CharField(max_length=16, unique=True,
         help_text='The unique code given in this application.')
